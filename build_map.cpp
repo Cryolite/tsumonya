@@ -6,7 +6,10 @@
 #include <boost/python/tuple.hpp>
 #include <boost/python/long.hpp>
 #include <boost/python/object.hpp>
+#include <fstream>
+#include <sstream>
 #include <iostream>
+#include <ios>
 #include <vector>
 #include <array>
 #include <utility>
@@ -23,7 +26,7 @@ using Tsumonya::Table;
 using Tsumonya::stable;
 using Tsumonya::mtable;
 using Tsumonya::ntable;
-using Tsumonya::abtable;
+using Tsumonya::xytable;
 using Tsumonya::HuleIndexer;
 
 using Hand = std::array<std::uint_fast8_t, 34u>;
@@ -36,37 +39,37 @@ std::uint_fast8_t encodeFuFan(std::uint_fast8_t const fu, std::uint_fast8_t cons
 {
     std::uint_fast8_t fu_encode = 0u;
     if (fu == 20u) {
-        fu_encode = 0u;
-    }
-    else if (fu == 25u) {
         fu_encode = 1u;
     }
-    else if (fu == 30u) {
+    else if (fu == 25u) {
         fu_encode = 2u;
     }
-    else if (fu == 40u) {
+    else if (fu == 30u) {
         fu_encode = 3u;
     }
-    else if (fu == 50u) {
+    else if (fu == 40u) {
         fu_encode = 4u;
     }
-    else if (fu == 60u) {
+    else if (fu == 50u) {
         fu_encode = 5u;
     }
-    else if (fu == 70u) {
+    else if (fu == 60u) {
         fu_encode = 6u;
     }
-    else if (fu == 80u) {
+    else if (fu == 70u) {
         fu_encode = 7u;
     }
-    else if (fu == 90u) {
+    else if (fu == 80u) {
         fu_encode = 8u;
     }
-    else if (fu == 100u) {
+    else if (fu == 90u) {
         fu_encode = 9u;
     }
-    else if (fu == 110u) {
+    else if (fu == 100u) {
         fu_encode = 10u;
+    }
+    else if (fu == 110u) {
+        fu_encode = 11u;
     }
     else {
         throw std::invalid_argument("An invalid fu.");
@@ -160,7 +163,7 @@ void createEntry(
     GangList const &angang_list, GangList const &minggang_list,
     HuleIndexer const &indexer, Map &map, std::uint_fast32_t &count)
 {
-    constexpr bool debugging = true;
+    constexpr bool debugging = false;
 
     std::uint_fast32_t const index = [&]() -> std::uint_fast32_t {
         try {
@@ -169,7 +172,9 @@ void createEntry(
                 throw std::logic_error("Failed to index a hule.");
             }
             if (index >= Tsumonya::e) {
-                throw std::logic_error("Out-of-bound index.");
+                std::ostringstream oss;
+                oss << index << " (>= " << Tsumonya::e << ")" << ": An out-of-bound index.";
+                throw std::logic_error(oss.str());
             }
             return index;
         }
@@ -374,17 +379,35 @@ void createEntry(
             std::cout << "rong: (" << static_cast<unsigned>(rong_fu) << ", " << static_cast<unsigned>(rong_fan) << ")\n";
         }
 
-        std::uint_fast32_t const map_index = hupai_index * Tsumonya::e + index;
-        //if (map[map_index].first == 0u && map[map_index].second == 0u) {
-        //    map[map_index] = std::make_pair(
-        //        encodeFuFan(zimo_fu, zimo_fan), encodeFuFan(rong_fu, rong_fan));
-        //}
-        //else {
-        //    if (encodeFuFan(zimo_fu, zimo_fan) != map[map_index].first || encodeFuFan(rong_fu, rong_fan) != map[map_index].second) {
-        //        //dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
-        //        //throw std::logic_error("Indices are in conflict.");
-        //    }
-        //}
+        std::uint_fast32_t const map_index = i * Tsumonya::e + index;
+        if (map_index >= map.size()) {
+            dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
+            std::ostringstream oss;
+            oss << static_cast<unsigned>(i) << " * " << Tsumonya::e << " + " << index << " = " << map_index << ": An out-of-bound index.";
+            throw std::logic_error(oss.str());
+        }
+#if 1
+        if (map[map_index].first == 0u && map[map_index].second == 0u) {
+            map[map_index] = std::make_pair(
+                encodeFuFan(zimo_fu, zimo_fan), encodeFuFan(rong_fu, rong_fan));
+        }
+        else {
+            if (encodeFuFan(zimo_fu, zimo_fan) != map[map_index].first || encodeFuFan(rong_fu, rong_fan) != map[map_index].second) {
+                dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
+                throw std::logic_error("Indices are in conflict.");
+            }
+        }
+#else
+        if (map[map_index] == 0u) {
+            map[map_index] = encodeFuFan(zimo_fu, zimo_fan);
+        }
+        else {
+            if (encodeFuFan(zimo_fu, zimo_fan) != map[map_index]) {
+                dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
+                throw std::logic_error("Indices are in conflict.");
+            }
+        }
+#endif
     }
     if (debugging) {
         std::cout << "========================================" << std::endl;
@@ -400,8 +423,8 @@ void enumerateNormalHule(
     std::uint_fast8_t const i,
     std::uint_fast8_t const m,
     std::uint_fast8_t const h,
-    std::uint_fast8_t const a,
-    std::uint_fast8_t const b,
+    std::uint_fast8_t const x,
+    std::uint_fast8_t const y,
     Hand &hand,
     ChiList &chi_list,
     PengList &peng_list,
@@ -431,6 +454,8 @@ void enumerateNormalHule(
     }
 
     if (i == 34u) {
+        assert((x == 0u));
+        assert((y == 0u));
         // Termination of recursion
         if (m == 5u && h == 1u) {
             createEntry(
@@ -439,8 +464,10 @@ void enumerateNormalHule(
         return;
     }
 
-    std::uint_fast8_t const cindex = (i / 9u) * 7u + i % 9u;
-    bool shunzi_prohibited = (7u <= i && i < 9u || 16u <= i && i < 18u || 25u <= i);
+    std::uint_fast8_t const color = i / 9u;
+    std::uint_fast8_t const number = i % 9u;
+    std::uint_fast8_t const cindex = color * 7u + number;
+    bool const shunzi_prohibited = color <= 2u && number >= 7u || color == 3u;
 
     for (std::uint_fast8_t s = 0u; s < stable.size(); ++s) {
         if (m + mtable[s] > 5u) {
@@ -449,10 +476,13 @@ void enumerateNormalHule(
         if (h + stable[s][0u] > 1u) {
             continue;
         }
-        if (a + ntable[s] > 4u) {
+        if (shunzi_prohibited && xytable[s] > 0u) {
             continue;
         }
-        if (shunzi_prohibited && abtable[s] > 0u) {
+        if (ntable[s] + x > 4u) {
+            continue;
+        }
+        if (xytable[s] + y > 4u) {
             continue;
         }
 
@@ -468,7 +498,7 @@ void enumerateNormalHule(
         minggang_list[i] += stable[s][6u];
 
         enumerateNormalHule(
-            i + 1u, m + mtable[s], h + stable[s][0u], b + abtable[s], abtable[s],
+            i + 1u, m + mtable[s], h + stable[s][0u], xytable[s] + y, xytable[s],
             hand, chi_list, peng_list, angang_list, minggang_list,
             indexer, map, count);
 
@@ -522,12 +552,19 @@ int main()
     };
 
     HuleIndexer indexer;
-    std::vector<std::pair<std::uint8_t, std::uint8_t>> map;
+    Map map(14u * Tsumonya::e, { 0u, 0u });
     std::uint_fast32_t count = 0u;
 
     enumerateNormalHule(
         0u, 0u, 0u, 0u, 0u, hand, chi_list, peng_list, angang_list, minggang_list,
         indexer, map, count);
+
+    {
+        std::ofstream ofs("map.bin", std::ios_base::out | std::ios_base::binary);
+        for (auto const [zimo_encode, rong_encode] : map) {
+            ofs << zimo_encode << rong_encode;
+        }
+    }
 
     Py_FinalizeEx();
 }

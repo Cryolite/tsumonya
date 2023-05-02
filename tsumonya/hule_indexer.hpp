@@ -5,230 +5,198 @@
 #include <stdexcept>
 #include <cstdint>
 #include <cassert>
+#include <cstddef>
 
-
-#include <iostream>
 
 namespace Tsumonya{
 
 class HuleIndexer
 {
 private:
-    using Hand_ = std::array<std::uint_fast8_t, 34u>;
-    using ChiList_ = std::array<std::uint_fast8_t, 21u>;
-    using PengList_ = std::array<std::uint_fast8_t, 34u>;
-    using GangList_ = std::array<std::uint_fast8_t, 34u>;
+    template<std::size_t N>
+    using StateSeq_ = std::array<std::tuple<std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t>, N>;
+
+public:
+    using Hand = std::array<std::uint_fast8_t, 34u>;
+    using ChiList = std::array<std::uint_fast8_t, 21u>;
+    using PengList = std::array<std::uint_fast8_t, 34u>;
+    using GangList = std::array<std::uint_fast8_t, 34u>;
 
 private:
-    std::uint_fast8_t getTotal_(
-        Hand_ const &hand, ChiList_ const &chi_list, PengList_ const &peng_list,
-        GangList_ const &angang_list, GangList_ const &minggang_list,
-        std::uint_fast8_t const i) const
-    {
-        std::uint_fast8_t const color = i / 9u;
-        std::uint_fast8_t const number = i % 9u;
-        std::uint_fast8_t const cindex = color <= 2u && number <= 6u ? color * 7u + number : UINT_FAST8_MAX;
-
-        if (color <= 2u && number == 0u) {
-            return hand[i] + chi_list[cindex] + 3u * peng_list[i] + 4u * (angang_list[i] + minggang_list[i]);
-        }
-        if (color <= 2u && number == 1u) {
-            assert((cindex >= 1u));
-            return hand[i] + chi_list[cindex - 1u] + chi_list[cindex] + 3u * peng_list[i] + 4u * (angang_list[i] + minggang_list[i]);
-        }
-        if (color <= 2u && number <= 6u) {
-            assert((cindex >= 2u));
-            return hand[i] + chi_list[cindex - 2u] + chi_list[cindex - 1u] + chi_list[cindex] + 3u * peng_list[i] + 4u * (angang_list[i] + minggang_list[i]);
-        }
-        if (color <= 2u && number == 7u) {
-            assert((cindex >= 2u));
-            return hand[i] + chi_list[color * 7u + 5u] + chi_list[color * 7u + 6u] + 3u * peng_list[i] + 4u * (angang_list[i] + minggang_list[i]);
-        }
-        if (color <= 2u && number == 8u) {
-            assert((cindex >= 2u));
-            return hand[i] + chi_list[color * 7u + 6u] + 3u * peng_list[i] + 4u * (angang_list[i] + minggang_list[i]);
-        }
-        assert((color == 3u));
-        return hand[i] + 3u * peng_list[i] + 4u * (angang_list[i] + minggang_list[i]);
-    }
-
-private:
-    std::tuple<std::uint_fast8_t, std::uint_fast8_t, std::uint_fast32_t> encodeShupai_(
-        std::uint_fast8_t const color, Hand_ const &hand, ChiList_ const &chi_list,
-        PengList_ const &peng_list, GangList_ const &angang_list, GangList_ const &minggang_list,
-        std::uint_fast8_t const head, std::uint_fast8_t m, std::uint_fast8_t h) const
+    template<std::size_t N>
+    std::uint_fast32_t encodeStateSeq_(std::uint_fast8_t const color, StateSeq_<N> const &state_seq) const
     {
         std::uint_fast32_t code = 0u;
 
-        std::uint_fast8_t aa = hand[color * 9u + 1u];
-        std::uint_fast8_t bb = hand[color * 9u + 2u];
-
-        std::uint_fast8_t a = getTotal_(hand, chi_list, peng_list, angang_list, minggang_list, color * 9u + 0u);
-        std::uint_fast8_t b = getTotal_(hand, chi_list, peng_list, angang_list, minggang_list, color * 9u + 1u);
-
-        for (std::uint_fast8_t i = color * 9u; i < (color + 1u) * 9u; ++i) {
-            std::uint_fast8_t const number = i - color * 9u;
-            std::uint_fast8_t const cindex = number <= 6u ? color * 7u + number : UINT_FAST8_MAX;
-
-            std::uint_fast8_t s = 0u;
-            for (; s < stable.size(); ++s) {
-                std::uint_fast32_t delta = table[i][5u - m][1u - h][s][a][b];
-                //std::cout << "head = " << static_cast<unsigned>(head)
-                //          << ", i = " << static_cast<unsigned>(i)
-                //          << ", m = " << static_cast<unsigned>(5u - m)
-                //          << ", h = " << static_cast<unsigned>(1u - h)
-                //          << ", s = " << static_cast<unsigned>(s)
-                //          << ", a = " << static_cast<unsigned>(a)
-                //          << ", b = " << static_cast<unsigned>(b)
-                //          << ", aa = " << static_cast<unsigned>(aa)
-                //          << ", bb = " << static_cast<unsigned>(bb)
-                //          << ": " << table[i][5u - m][1u - h][s][a][b] << std::endl;
-                if (aa < 2u * stable[s][0u] + 3u * stable[s][1u] + stable[s][2u]) {
-                    code += delta;
+        for (std::uint_fast8_t i = 0u; i < N; ++i) {
+            std::uint_fast8_t const number = color <= 2u ? i % 9u : UINT_FAST8_MAX;
+            auto const [m, h, s, x, y] = state_seq[i];
+            bool const shunzi_prohibited = color <= 2u && number >= 7u || color == 3u;
+            for (std::uint_fast8_t ss = 0u; ss < stable.size(); ++ss) {
+                if (ss == s) {
+                    break;
+                }
+                if (m + mtable[ss] > 5u) {
                     continue;
                 }
-                if (bb < stable[s][2u]) {
-                    code += delta;
+                if (h + stable[ss][0u] > 1u) {
                     continue;
                 }
-                if (number <= 6u && hand[i + 2u] < stable[s][2u]) {
-                    code += delta;
+                if (shunzi_prohibited && xytable[ss] > 0u) {
                     continue;
                 }
-                if (a < ntable[s]) {
-                    code += delta;
+                if (ntable[ss] + x > 4u) {
                     continue;
                 }
-                if (b < abtable[s]) {
-                    code += delta;
+                if (xytable[ss] + y > 4u) {
                     continue;
                 }
-                if (number <= 6u && getTotal_(hand, chi_list, peng_list, angang_list, minggang_list, i + 2u) < abtable[s]) {
-                    code += delta;
-                    continue;
-                }
-                if (m + mtable[s] > 5u) {
-                    code += delta;
-                    continue;
-                }
-                if ((head == i) != (stable[s][0u] == 1u)) {
-                    code += delta;
-                    continue;
-                }
-                if (h + stable[s][0u] > 1u) {
-                    code += delta;
-                    continue;
-                }
-                if (cindex != UINT_FAST8_MAX && stable[s][3u] != chi_list[cindex]) {
-                    code += delta;
-                    continue;
-                }
-                if (cindex == UINT_FAST8_MAX && abtable[s] > 0u) {
-                    code += delta;
-                    continue;
-                }
-                if (stable[s][4u] != peng_list[i]) {
-                    code += delta;
-                    continue;
-                }
-                if (stable[s][5u] != angang_list[i]) {
-                    code += delta;
-                    continue;
-                }
-                if (stable[s][6u] != minggang_list[i]) {
-                    code += delta;
-                    continue;
-                }
-
-                aa = bb - stable[s][2u];
-                bb = number <= 6u ? hand[i + 2u] - stable[s][2u] : 0u;
-                a = b - abtable[s];
-                if (number <= 6u) {
-                    b = getTotal_(hand, chi_list, peng_list, angang_list, minggang_list, i + 2u) - abtable[s];
-                }
-                else {
-                    b = 0u;
-                }
-                m += mtable[s];
-                h += stable[s][0u];
-                break;
-            }
-            if (s == stable.size()) {
-                return { UINT_FAST8_MAX, UINT_FAST8_MAX, UINT_FAST32_MAX };
-            }
-        }
-
-        return { m, h, code };
-    }
-
-    std::uint_fast32_t encodeZipai_(
-        std::array<std::uint_fast8_t, 34u> const &hand,
-        std::array<std::uint_fast8_t, 34u> const &peng_list,
-        std::array<std::uint_fast8_t, 34u> const &angang_list,
-        std::array<std::uint_fast8_t, 34u> const &minggang_list,
-        std::uint_fast8_t m,
-        std::uint_fast8_t h) const
-    {
-        std::uint_fast32_t code = 0u;
-
-        for (std::uint_fast8_t i = 27u; i < 34u; ++i) {
-            std::uint_fast8_t const a = hand[i] + 3u * peng_list[i] + 4u * (angang_list[i] + minggang_list[i]);
-            std::uint_fast8_t const b = hand[i] + 3u * peng_list[i] + 4u * (angang_list[i] + minggang_list[i]);
-
-            for (std::uint_fast8_t s = 0u; s < stable.size(); ++s) {
-                std::uint_fast32_t const delta = table[i][5u - m][1u - h][s][a][b];
-                if (hand[i] < 2u * stable[s][0u] + 3u * stable[s][1u]) {
-                    code += delta;
-                    continue;
-                }
-                if (m + mtable[s] > 5u) {
-                    code += delta;
-                    continue;
-                }
-                if ((hand[i] == 2u) != (stable[s][0u] == 1u)) {
-                    code += delta;
-                    continue;
-                }
-                if (h + stable[s][0u] > 1u) {
-                    code += delta;
-                    continue;
-                }
-                if (abtable[s] > 0u) {
-                    code += delta;
-                    continue;
-                }
-                if (stable[s][4u] != peng_list[i]) {
-                    code += delta;
-                    continue;
-                }
-                if (stable[s][5u] != angang_list[i]) {
-                    code += delta;
-                    continue;
-                }
-                if (stable[s][6u] != minggang_list[i]) {
-                    code += delta;
-                    continue;
-                }
-
-                if (hand[i] > 2u * stable[s][0u] + 3u * stable[s][1u]) {
-                    return UINT_FAST32_MAX;
-                }
-                m += mtable[s];
-                h += stable[s][0u];
-                break;
+                code += table[color * 9u + i][m + mtable[ss]][h + stable[ss][0u]][xytable[ss] + y][xytable[ss]];
             }
         }
 
         return code;
     }
 
+    std::tuple<std::uint_fast8_t, std::uint_fast8_t, std::uint_fast32_t> encodeShupai_(
+        std::uint_fast8_t const color, Hand const &hand, ChiList const &chi_list,
+        PengList const &peng_list, GangList const &angang_list, GangList const &minggang_list,
+        std::uint_fast8_t const head, std::uint_fast8_t m, std::uint_fast8_t h) const
+    {
+        std::uint_fast8_t x = 0u;
+        std::uint_fast8_t y = 0u;
+
+        std::uint_fast8_t a = hand[color * 9u + 0u];
+        std::uint_fast8_t b = hand[color * 9u + 1u];
+
+        StateSeq_<9u> state_seq;
+
+        for (std::uint_fast8_t i = color * 9u; i < (color + 1u) * 9u; ++i) {
+            std::uint_fast8_t const number = i - color * 9u;
+            std::uint_fast8_t const cindex = number <= 6u ? color * 7u + number : UINT_FAST8_MAX;
+
+            std::uint_fast8_t s = UINT_FAST8_MAX;
+            for (std::uint_fast8_t ss = 0u; ss < stable.size(); ++ss) {
+                if (m + mtable[ss] > 5u) {
+                    continue;
+                }
+                if ((head == i) != (stable[ss][0u] == 1u)) {
+                    continue;
+                }
+                if (h + stable[ss][0u] > 1u) {
+                    continue;
+                }
+                if (ntable[ss] + x > 4u) {
+                    continue;
+                }
+                if (xytable[ss] + y > 4u) {
+                    continue;
+                }
+                if (cindex == UINT_FAST8_MAX && xytable[ss] > 0u) {
+                    continue;
+                }
+                if (a < 2u * stable[ss][0u] + 3u * stable[ss][1u] + stable[ss][2u]) {
+                    continue;
+                }
+                if (b < stable[ss][2u]) {
+                    continue;
+                }
+                if (number <= 6u && hand[i + 2u] < stable[ss][2u]) {
+                    continue;
+                }
+                if (cindex != UINT_FAST8_MAX && stable[ss][3u] != chi_list[cindex]) {
+                    continue;
+                }
+                if (stable[ss][4u] != peng_list[i]) {
+                    continue;
+                }
+                if (stable[ss][5u] != angang_list[i]) {
+                    continue;
+                }
+                if (stable[ss][6u] != minggang_list[i]) {
+                    continue;
+                }
+
+                if (a > 2u * stable[ss][0u] + 3u * stable[ss][1u] + stable[ss][2u]) {
+                    return { UINT_FAST8_MAX, UINT_FAST8_MAX, UINT_FAST32_MAX };
+                }
+                s = ss;
+                break;
+            }
+            if (s == UINT_FAST8_MAX) {
+                return { UINT_FAST8_MAX, UINT_FAST8_MAX, UINT_FAST32_MAX };
+            }
+
+            state_seq[number] = { m, h, s, x, y };
+
+            x = number <= 6u ? xytable[s] + y : y;
+            y = number <= 6u ? xytable[s] : 0u;
+            a = number <= 6u ? b - stable[s][2u] : b;
+            b = number <= 6u ? hand[i + 2u] - stable[s][2u] : 0u;
+            m += mtable[s];
+            h += stable[s][0u];
+        }
+
+        return { m, h, encodeStateSeq_(color, state_seq) };
+    }
+
+    std::uint_fast32_t encodeZipai_(
+        Hand const &hand, PengList const &peng_list, GangList const &angang_list,
+        GangList const &minggang_list, std::uint_fast8_t m, std::uint_fast8_t h) const
+    {
+        StateSeq_<7u> state_seq;
+
+        for (std::uint_fast8_t i = 27u; i < 34u; ++i) {
+            std::uint_fast8_t s = UINT_FAST8_MAX;
+            for (std::uint_fast8_t ss = 0u; ss < stable.size(); ++ss) {
+                if (m + mtable[ss] > 5u) {
+                    continue;
+                }
+                if ((hand[i] == 2u) != (stable[ss][0u] == 1u)) {
+                    continue;
+                }
+                if (h + stable[ss][0u] > 1u) {
+                    continue;
+                }
+                if (xytable[ss] > 0u) {
+                    continue;
+                }
+                if (hand[i] < 2u * stable[ss][0u] + 3u * stable[ss][1u]) {
+                    continue;
+                }
+                if (stable[ss][4u] != peng_list[i]) {
+                    continue;
+                }
+                if (stable[ss][5u] != angang_list[i]) {
+                    continue;
+                }
+                if (stable[ss][6u] != minggang_list[i]) {
+                    continue;
+                }
+
+                if (hand[i] > 2u * stable[ss][0u] + 3u * stable[ss][1u]) {
+                    return UINT_FAST32_MAX;
+                }
+                s = ss;
+                break;
+            }
+            if (s == UINT_FAST8_MAX) {
+                return UINT_FAST32_MAX;
+            }
+
+            state_seq[i - 27u] = { m, h, s, 0u, 0u };
+
+            m += mtable[s];
+            h += stable[s][0u];
+        }
+
+        return encodeStateSeq_(3u, state_seq);
+    }
+
 public:
     std::uint_fast32_t operator()(
-        std::array<std::uint_fast8_t, 34u> const &hand,
-        std::array<std::uint_fast8_t, 21u> const &chi_list,
-        std::array<std::uint_fast8_t, 34u> const &peng_list,
-        std::array<std::uint_fast8_t, 34u> const &angang_list,
-        std::array<std::uint_fast8_t, 34u> const &minggang_list) const
+        Hand const &hand, ChiList const &chi_list, PengList const &peng_list,
+        GangList const &angang_list, GangList const &minggang_list) const
     {
         for (std::uint_fast8_t i = 0u; i < 27u; ++i) {
             std::uint_fast8_t const color = i / 9u;
