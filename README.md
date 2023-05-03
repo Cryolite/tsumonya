@@ -18,5 +18,5 @@ The most important core of the theory behind this library is [the implementation
 
 ```
 tsumonya$ docker build --pull -t cryolite/tsumonya .
-tsumonya$ docker -v /path/to/working-tree:/workspace/tsumonya -it --rm cryolite/tsumonya
+tsumonya$ docker run -v /path/to/working-tree:/workspace/tsumonya -it --rm cryolite/tsumonya
 ```
