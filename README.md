@@ -1,3 +1,5 @@
+**THIS LIBRARY IS UNDER ACTIVE DEVELOPMENT.**
+
 # Tsumonya - ultra-high throughput mahjong hand calculator
 
 *Tsumonya* is a mahjong-related C++ library that calculates the score for a given winning hand (和了形). The main feature of this library is its ultra-high throughput, i.e., it focuses on dramatically reducing the average computation time for a single score calculation when calling many consecutive score calculation routines. On the other hand, the library sacrifices a significant amount of reaction time, or latency, for a single computation routine call.
