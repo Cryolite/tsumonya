@@ -41,7 +41,7 @@ RUN set -euxo pipefail; \
     echo 'import toolset : using ; using python : : /usr/bin/python3 ;' > /home/ubuntu/user-config.jam; \
     /workspace/prerequisites/boost/download --debug --source-dir /workspace/boost; \
     /workspace/prerequisites/boost/build --debug --source-dir /workspace/boost --prefix /home/ubuntu/.local -- \
-      -d+2 --with-headers --with-python --build-type=complete --layout=tagged \
+      -d+2 --with-headers --with-timer --with-python --build-type=complete --layout=tagged \
       toolset=gcc variant=debug threading=multi link=shared runtime-link=shared \
       cxxflags=-D_GLIBCXX_DEBUG cxxflags=-D_GLIBCXX_DEBUG_PEDANTIC \
       cflags=-fsanitize=address cxxflags=-fsanitize=address linkflags=-fsanitize=address \
