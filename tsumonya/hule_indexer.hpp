@@ -1,5 +1,6 @@
 #include <tsumonya/table.hpp>
 #include <tsumonya/core.hpp>
+#include <iostream>
 #include <array>
 #include <tuple>
 #include <stdexcept>
