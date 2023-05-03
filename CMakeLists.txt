@@ -5,7 +5,7 @@ enable_testing()
 
 if (NOT DEFINED PYTHON_VERSION)
   execute_process(
-    COMMAND bash "-c" "python --version | grep -Eo '^Python [[:digit:]]+\\.[[:digit:]]+' | grep -Eo '[[:digit:]]+\\.[[:digit:]]+'"
+    COMMAND bash "-c" "python3 --version | grep -Eo '^Python [[:digit:]]+\\.[[:digit:]]+' | grep -Eo '[[:digit:]]+\\.[[:digit:]]+'"
     OUTPUT_VARIABLE PYTHON_VERSION
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
@@ -107,7 +107,7 @@ endif()
 set(BOOST_ROOT "$ENV{HOME}/.local")
 find_package(Boost
   REQUIRED
-  COMPONENTS stacktrace_backtrace python)
+  COMPONENTS python)
 
 add_compile_definitions(BOOST_STACKTRACE_USE_BACKTRACE)
 
