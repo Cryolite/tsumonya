@@ -85,7 +85,7 @@ std::uint_fast32_t countNumTails(
         if (shunzi_prohibited && xytable[s] > 0u) {
             continue;
         }
-        if (color == 3u && y > 0u) {
+        if ((color <= 2u && number == 8u || color == 3u) && y > 0u) {
             continue;
         }
         if (ntable[s] + x > 4u) {
