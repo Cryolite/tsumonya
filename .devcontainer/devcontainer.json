@@ -19,11 +19,19 @@
 	// "forwardPorts": [],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "bash /workspaces/tsumonya/.devcontainer/post-create.sh"
+	"postCreateCommand": "bash /workspaces/tsumonya/.devcontainer/post-create.sh",
 
 	// Configure tool-specific properties.
 	// "customizations": {},
 
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
 	// "remoteUser": "root"
+
+	"remoteEnv": {
+		"C_INCLUDE_PATH": "/home/vscode/.local/include",
+		"CPLUS_INCLUDE_PATH": "/home/vscode/.local/include",
+		"LIBRARY_PATH": "/home/vscode/.local/lib64:/home/vscode/.local/lib",
+		"LD_LIBRARY_PATH": "/home/vscode/.local/lib64:/home/vscode/.local/lib",
+		"PATH": "/home/vscode/.local/bin:${containerEnv:PATH}"
+	}
 }

@@ -15,10 +15,7 @@ fi
 sudo apt-get -y update
 sudo apt-get -y dist-upgrade
 sudo apt-get -y install \
-  autoconf \
-  automake \
   g++ \
-  libtool \
   python3-dev
 
 sudo chown vscode:vscode /workspaces
@@ -66,39 +63,16 @@ export PATH="$HOME/.local/bin${PATH:+:$PATH}"
 # Install CMake.
 /workspaces/prerequisites/cmake/install --debug --prefix "$HOME/.local"
 
-# Install libbacktrace.
-/workspaces/prerequisites/libbacktrace/install --debug --prefix "$HOME/.local"
-
 # Install Boost.Stacktrace and Boost.Python.
 echo 'import toolset : using ; using python : : /usr/local/python/current/bin/python3 ;' > "$HOME/user-config.jam"
 /workspaces/prerequisites/boost/download --debug --source-dir /workspaces/boost
 /workspaces/prerequisites/boost/build --debug --source-dir /workspaces/boost --prefix "$HOME/.local" -- \
-  -d+2 --with-headers --with-stacktrace --with-python --build-type=complete --layout=tagged \
+  -d+2 --with-headers --with-timer --with-python --build-type=complete --layout=tagged \
   toolset=gcc variant=debug threading=multi link=shared runtime-link=shared \
   cxxflags=-D_GLIBCXX_DEBUG cxxflags=-D_GLIBCXX_DEBUG_PEDANTIC \
   cflags=-fsanitize=address cxxflags=-fsanitize=address linkflags=-fsanitize=address \
   cflags=-fsanitize=undefined cxxflags=-fsanitize=undefined linkflags=-fsanitize=undefined
 /workspaces/prerequisites/boost/build --debug --source-dir /workspaces/boost --prefix "$HOME/.local" -- \
-  -d+2 --with-headers --with-stacktrace --with-python --build-type=complete --layout=tagged \
+  -d+2 --with-headers --with-timer --with-python --build-type=complete --layout=tagged \
   toolset=gcc variant=release threading=multi link=shared runtime-link=shared
 rm -rf /workspaces/boost
-
-# Build and install marisa-trie.
-pushd /workspaces
-git clone 'https://github.com/s-yata/marisa-trie.git'
-pushd marisa-trie
-autoreconf -i
-CFLAGS='-DNDEBUG -O3 -flto' CXXFLAGS='-DNDEBUG -O3 -flto' ./configure --prefix="$HOME/.local" --enable-native-code --disable-static
-make -j
-make install
-popd
-rm -rf marisa-trie
-popd
-
-# Clone shanten-number.
-pushd /workspaces
-git clone 'https://github.com/tomohxx/shanten-number'
-pushd shanten-number
-tar xzvf index.tar.gz
-popd
-popd
