@@ -107,7 +107,7 @@ endif()
 set(BOOST_ROOT "$ENV{HOME}/.local")
 find_package(Boost
   REQUIRED
-  COMPONENTS python)
+  COMPONENTS timer python)
 
 add_compile_definitions(BOOST_STACKTRACE_USE_BACKTRACE)
 
@@ -120,5 +120,6 @@ add_executable(build_map
   build_map.cpp)
 target_link_libraries(build_map
   PRIVATE Boost::python
+  PRIVATE Boost::timer
   PRIVATE Boost::headers
   PRIVATE python"${PYTHON_VERSION}")

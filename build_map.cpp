@@ -6,9 +6,12 @@
 #include <boost/python/tuple.hpp>
 #include <boost/python/long.hpp>
 #include <boost/python/object.hpp>
+#include <boost/timer/timer.hpp>
+#include <boost/io/ios_state.hpp>
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <iomanip>
 #include <ios>
 #include <vector>
 #include <array>
@@ -20,6 +23,7 @@
 
 namespace{
 
+using boost::timer::cpu_timer;
 namespace python = boost::python;
 
 using Tsumonya::Table;
@@ -76,51 +80,35 @@ std::uint_fast8_t encodeFuFan(std::uint_fast8_t const fu, std::uint_fast8_t cons
     }
 
     std::uint_fast8_t fan_encode = 0u;
-    if (fan <= 3u) {
+    if (fan <= 12u) {
         fan_encode = fan;
-    }
-    else if (4u <= fan && fan <= 5u) {
-        // 満貫
-        fan_encode = 4u;
-    }
-    else if (6u <= fan && fan <= 7u) {
-        // 跳満
-        fan_encode = 5u;
-    }
-    else if (8u <= fan && fan <= 10u) {
-        // 倍満
-        fan_encode = 6u;
-    }
-    else if (11u <= fan && fan <= 12u) {
-        // 三倍満
-        fan_encode = 7u;
     }
     else if (13u <= fan && fan < 26u) {
         // 役満
-        fan_encode = 8u;
+        fan_encode = 13u;
     }
     else if (26u <= fan && fan < 39u) {
         // 二倍役満
-        fan_encode = 9u;
+        fan_encode = 14u;
     }
     else if (39u <= fan && fan < 52u) {
         // 三倍役満
-        fan_encode = 10u;
+        fan_encode = 15u;
     }
     else if (52u <= fan && fan < 65u) {
         // 四倍役満
-        fan_encode = 11u;
+        fan_encode = 16u;
     }
     else if (65u <= fan && fan < 78u) {
         // 五倍役満
-        fan_encode = 12u;
+        fan_encode = 17u;
     }
     else if (fan >= 78u) {
         // 六倍役満
-        fan_encode = 13u;
+        fan_encode = 18u;
     }
 
-    return (fu_encode << 4u) + fan_encode;
+    return fu_encode * 19u + fan_encode;
 }
 
 void dumpEntry(
@@ -161,7 +149,7 @@ void dumpEntry(
 void createEntry(
     Hand const &hand, ChiList const &chi_list, PengList const &peng_list,
     GangList const &angang_list, GangList const &minggang_list,
-    HuleIndexer const &indexer, Map &map, std::uint_fast32_t &count)
+    HuleIndexer const &indexer, Map &map, std::uint_fast32_t &count, cpu_timer const &timer)
 {
     constexpr bool debugging = false;
 
@@ -386,7 +374,6 @@ void createEntry(
             oss << static_cast<unsigned>(i) << " * " << Tsumonya::e << " + " << index << " = " << map_index << ": An out-of-bound index.";
             throw std::logic_error(oss.str());
         }
-#if 1
         if (map[map_index].first == 0u && map[map_index].second == 0u) {
             map[map_index] = std::make_pair(
                 encodeFuFan(zimo_fu, zimo_fan), encodeFuFan(rong_fu, rong_fan));
@@ -397,17 +384,6 @@ void createEntry(
                 throw std::logic_error("Indices are in conflict.");
             }
         }
-#else
-        if (map[map_index] == 0u) {
-            map[map_index] = encodeFuFan(zimo_fu, zimo_fan);
-        }
-        else {
-            if (encodeFuFan(zimo_fu, zimo_fan) != map[map_index]) {
-                dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
-                throw std::logic_error("Indices are in conflict.");
-            }
-        }
-#endif
     }
     if (debugging) {
         std::cout << "========================================" << std::endl;
@@ -415,24 +391,43 @@ void createEntry(
 
     ++count;
     if (count % 1000u == 0u) {
-        std::cout << count << std::endl;
+        boost::io::ios_all_saver ias(std::cout);
+        std::cout << count << " (";
+        boost::timer::nanosecond_type wall_clock_ = timer.elapsed().wall;
+        double wall_clock = static_cast<double>(wall_clock_) / 1000000000;
+        double eta = (wall_clock / count) * Tsumonya::e;
+        std::int_least64_t const wall_clock_in_days = wall_clock / (60.0 * 60.0 * 24.0);
+        wall_clock -= wall_clock_in_days * 60 * 60 * 24;
+        std::int_least64_t const wall_clock_in_hours = wall_clock / (60.0 * 60.0);
+        wall_clock -= wall_clock_in_hours * 60 * 60;
+        std::int_least64_t const wall_clock_in_minutes = wall_clock / 60.0;
+        wall_clock -= wall_clock_in_minutes * 60;
+        if (wall_clock_in_days > 0) {
+            std::cout << wall_clock_in_days << " days ";
+        }
+        std::cout << std::setfill('0') << std::setw(2) << wall_clock_in_hours << ':'
+                  << std::setfill('0') << std::setw(2) << wall_clock_in_minutes << ':'
+                  << std::setfill('0') << std::setw(2) << static_cast<int>(wall_clock) << " / ";
+        std::int_least64_t const eta_in_days = eta / (60.0 * 60.0 * 24.0);
+        eta -= eta_in_days * 60 * 60 * 24;
+        std::int_least64_t const eta_in_hours = eta / (60.0 * 60.0);
+        eta -= eta_in_hours * 60 * 60;
+        std::int_least64_t const eta_in_minutes = eta / 60.0;
+        eta -= eta_in_minutes * 60;
+        if (eta_in_days > 0) {
+            std::cout << eta_in_days << " days ";
+        }
+        std::cout << std::setfill('0') << std::setw(2) << eta_in_hours << ':'
+                  << std::setfill('0') << std::setw(2) << eta_in_minutes << ':'
+                  << std::setfill('0') << std::setw(2) << static_cast<int>(eta) << ')' << std::endl;
     }
 }
 
 void enumerateNormalHule(
-    std::uint_fast8_t const i,
-    std::uint_fast8_t const m,
-    std::uint_fast8_t const h,
-    std::uint_fast8_t const x,
-    std::uint_fast8_t const y,
-    Hand &hand,
-    ChiList &chi_list,
-    PengList &peng_list,
-    GangList &angang_list,
-    GangList &minggang_list,
-    HuleIndexer const &indexer,
-    Map &map,
-    std::uint_fast32_t &count)
+    std::uint_fast8_t const i, std::uint_fast8_t const m, std::uint_fast8_t const h,
+    std::uint_fast8_t const x, std::uint_fast8_t const y, Hand &hand, ChiList &chi_list,
+    PengList &peng_list, GangList &angang_list, GangList &minggang_list, HuleIndexer const &indexer,
+    Map &map, std::uint_fast32_t &count, cpu_timer const &timer)
 {
     assert((i <= 34u));
     assert((m <= 5u));
@@ -459,7 +454,7 @@ void enumerateNormalHule(
         // Termination of recursion
         if (m == 5u && h == 1u) {
             createEntry(
-                hand, chi_list, peng_list, angang_list, minggang_list, indexer, map, count);
+                hand, chi_list, peng_list, angang_list, minggang_list, indexer, map, count, timer);
         }
         return;
     }
@@ -499,8 +494,7 @@ void enumerateNormalHule(
 
         enumerateNormalHule(
             i + 1u, m + mtable[s], h + stable[s][0u], xytable[s] + y, xytable[s],
-            hand, chi_list, peng_list, angang_list, minggang_list,
-            indexer, map, count);
+            hand, chi_list, peng_list, angang_list, minggang_list, indexer, map, count, timer);
 
         angang_list[i] -= stable[s][5u];
         minggang_list[i] -= stable[s][6u];
@@ -554,10 +548,11 @@ int main()
     HuleIndexer indexer;
     Map map(14u * Tsumonya::e, { 0u, 0u });
     std::uint_fast32_t count = 0u;
+    cpu_timer timer;
 
     enumerateNormalHule(
         0u, 0u, 0u, 0u, 0u, hand, chi_list, peng_list, angang_list, minggang_list,
-        indexer, map, count);
+        indexer, map, count, timer);
 
     {
         std::ofstream ofs("map.bin", std::ios_base::out | std::ios_base::binary);
