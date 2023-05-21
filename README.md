@@ -1,6 +1,6 @@
 # Tsumonya - ultra-high throughput mahjong hand calculator
 
-*Tsumonya* is a mahjong-related C++ library that calculates the score for a given winning hand (和了形). The main feature of this library is its ultra-high throughput, i.e., it focuses on dramatically reducing the average computation time for a single score calculation when calling many consecutive score calculation routines. On the other hand, the library sacrifices a significant amount of reaction time, or latency, for a single computation routine call. In addition, this library consumes an ridicuously large amount of memory (~25GB) during runtime. Therefore, users are requested to carefully determine whether this library is suitable to their individual use cases.
+*Tsumonya* is a mahjong-related C++ library that calculates the score for a given winning hand (和了形). The main feature of this library is its ultra-high throughput, i.e., it focuses on dramatically reducing the average computation time for a single score calculation when calling many consecutive score calculation routines. On the other hand, the library sacrifices a significant amount of reaction time, or latency, for a single computation routine call. In addition, this library consumes an ridicuously large amount of storage (~26GB). Therefore, users are requested to carefully determine whether this library is suitable to their individual use cases.
 
 Ultra-high throughput is not likely to be required for ordinary mahjong score calculations. However, ultra-high throughput may be required when running large-scale simulations for the development, training, and evaluation of mahjong AIs. In these cases, the score calculation is called not only once at the end of each round in simulations, but also many times to determine whether a zimo (自摸) or rong (ロン) is possible when one of the players has a ready hand, and every time they draws a tile or another player discards a tile. Therefore, an ultra-high throughput implementation in calling a large number of scoring routines would contribute significantly to simulation speed-up.
 
@@ -8,14 +8,20 @@ The implementation is based on an idea of computing mahjong scores only by simpl
 
 # How to use
 
-First, clone this repository.
+First, set up [git large file storage](https://git-lfs.com/).
+
+```sh
+$ git lfs install
+```
+
+Next, clone this repository.
 
 ```sh
 $ git clone https://github.com/Cryolite/tsumonya
 $ cd tsumonya
 ```
 
-Next, decompress `map.bin.gz`.
+Then, decompress `map.bin.gz`.
 
 ```sh
 tsumonya$ gunzip -k map.bin.gz
