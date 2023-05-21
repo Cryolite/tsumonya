@@ -11,18 +11,17 @@
 
 namespace Tsumonya{
 
+using Hand = std::array<std::uint_fast8_t, 34u>;
+using ChiList = std::array<std::uint_fast8_t, 21u>;
+using PengList = std::array<std::uint_fast8_t, 34u>;
+using GangList = std::array<std::uint_fast8_t, 34u>;
+
 class HuleIndexer
 {
 private:
     static constexpr bool debugging_ = false;
 
     using StateSeq_ = std::array<std::tuple<std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t>, 34u>;
-
-public:
-    using Hand = std::array<std::uint_fast8_t, 34u>;
-    using ChiList = std::array<std::uint_fast8_t, 21u>;
-    using PengList = std::array<std::uint_fast8_t, 34u>;
-    using GangList = std::array<std::uint_fast8_t, 34u>;
 
 private:
     std::tuple<std::uint_fast8_t, std::uint_fast8_t> encodeShupai_(

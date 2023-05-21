@@ -367,7 +367,7 @@ void createEntry(
             std::cout << "rong: (" << static_cast<unsigned>(rong_fu) << ", " << static_cast<unsigned>(rong_fan) << ")\n";
         }
 
-        std::uint_fast32_t const map_index = i * Tsumonya::e + index;
+        std::uint_fast32_t const map_index = index * 13u + i;
         if (map_index >= map.size()) {
             dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
             std::ostringstream oss;
@@ -546,7 +546,7 @@ int main()
     };
 
     HuleIndexer indexer;
-    Map map(14u * Tsumonya::e, { 0u, 0u });
+    Map map(13u * Tsumonya::e, std::pair<std::uint8_t, std::uint8_t>(0u, 0u));
     std::uint_fast32_t count = 0u;
     cpu_timer timer;
 
