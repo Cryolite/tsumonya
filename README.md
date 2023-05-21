@@ -71,7 +71,7 @@ public:
 
 ### `Hand`
 
-The `Hand` type represents a set of tiles in a hand. It MUST NOT contain melded tiles nor the winning tile. This is an array type with 34 elements. The 0-th element MUST indicate the number of the 1 Character tile (一萬, 1m), the 1st element the number of the 2 Character tile (二萬, 2m), and so on.
+The `Hand` type represents a set of tiles in a hand. It MUST NOT contain melded tiles (副露牌) nor the winning tile (和牌). This is an array type with 34 elements. The 0-th element MUST indicate the number of the 1 Character tile (一萬, 1m), the 1st element the number of the 2 Character tile (二萬, 2m), and so on.
 
 ### `ChiList`
 
