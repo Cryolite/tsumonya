@@ -123,3 +123,6 @@ target_link_libraries(build_map
   PRIVATE Boost::timer
   PRIVATE Boost::headers
   PRIVATE python"${PYTHON_VERSION}")
+
+add_executable(test_calculator
+  test/calculator.cpp)
