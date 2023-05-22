@@ -147,7 +147,7 @@ This function calculates fu (符) and fan (飜) for the winning situation repres
 
 The return value is a pair of fu and fan. If the situation represented by the arguments is not a win, a pair of 0s is returned.
 
-# Speed comparison
+# Performance comparison
 
 It is approximately 100 times faster on average than the [mahjong Python package \(version 1.1.10\)](https://pypi.org/project/mahjong/1.1.10/).
 
