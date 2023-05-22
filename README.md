@@ -79,7 +79,7 @@ The `ChiList` type represents a set of chews (chi, 吃, チー). This is an arra
 
 ### `PengList`
 
-The `PengList` type represents a set of pengs (pon, 碰, ポン). This is an array type with 34 elements. The 0-th element MUST indicate the number of the peng (1m, 1m, 1m), the 1st element the number of the gang (2m, 2m, 2m), and so on.
+The `PengList` type represents a set of pengs (pon, 碰, ポン). This is an array type with 34 elements. The 0-th element MUST indicate the number of the peng (1m, 1m, 1m), the 1st element the number of the peng (2m, 2m, 2m), and so on.
 
 ### `GangList`
 
