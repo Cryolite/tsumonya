@@ -147,6 +147,10 @@ This function calculates fu (符) and fan (飜) for the winning situation repres
 
 The return value is a pair of fu and fan. If the situation represented by the arguments is not a win, a pair of 0s is returned.
 
+# Speed comparison
+
+It is approximately 100 times faster on average than the [mahjong Python package \(version 1.1.10\)](https://pypi.org/project/mahjong/1.1.10/).
+
 # Background theory
 
 The most important core of the theory behind this library is [the implementation of a near-minimal perfect (collisionless) hash function for the set of all possible mahjong winning hands](https://github.com/Cryolite/tsumonya/blob/master/tsumonya/hule_indexer.hpp). The current implementation maps an winning hand to a natural number in the range `[0, 1062518406)`. Therefore, by preparing an array with `13 * 1062518406` elements, where the number `13` means that the library has additional information to identify which tile of each winning hand is the winning tile, and by calling some score calculation routine for each winning hand and recording the result of the routine in the \[*i* * 13, *i* * 13 + 13\)-th elements of the array (where *i* is the hash of the winning hand), when calculating scores, it is only necessary to calculate the hash of the given winning hand and access the array element.
