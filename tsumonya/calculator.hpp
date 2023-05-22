@@ -72,6 +72,8 @@ constexpr Situation &operator|=(Situation &lhs, Situation rhs)
 class Calculator
 {
 private:
+    static constexpr std::uint_fast64_t map_size_ = 28u * Tsumonya::e;
+
     class Impl_
     {
     public:
@@ -90,6 +92,11 @@ private:
                 oss << map_path << ": Not a file.";
                 throw std::runtime_error(oss.str());
             }
+            if (std::filesystem::file_size(map_path) != map_size_) {
+                std::ostringstream oss;
+                oss << map_path << ": Not a map file.";
+                throw std::runtime_error(oss.str());
+            }
 
             fd_ = open(map_path.c_str(), O_RDONLY);
             if (fd_ == -1) {
@@ -98,7 +105,7 @@ private:
                 throw std::runtime_error(oss.str());
             }
 
-            p_ = mmap(nullptr, 26u * Tsumonya::e, PROT_READ, MAP_PRIVATE, fd_, 0);
+            p_ = mmap(nullptr, map_size_, PROT_READ, MAP_PRIVATE, fd_, 0);
             if (p_ == reinterpret_cast<void *>(-1)) {
                 close(fd_);
                 std::ostringstream oss;
@@ -111,27 +118,30 @@ private:
 
         ~Impl_()
         {
-            munmap(p_, 26u * Tsumonya::e);
+            munmap(p_, map_size_);
             close(fd_);
         }
 
         Impl_ &operator=(Impl_ const &) = delete;
 
-        std::pair<std::uint8_t, std::uint8_t> operator()(
+        std::pair<std::uint_fast8_t, std::uint_fast8_t> operator()(
             Hand const &hand, ChiList const &chi_list, PengList const &peng_list,
-            GangList const &angang_list, GangList const &minggang_list, std::uint8_t hupai_index,
-            bool rong) const
+            GangList const &angang_list, GangList const &minggang_list,
+            std::uint_fast8_t hupai_index, bool rong) const
         {
-            std::uint8_t const *p = static_cast<std::uint8_t const *>(p_);
             std::uint_fast32_t const index = hule_indexer_(
                 hand, chi_list, peng_list, angang_list, minggang_list);
             if (index == UINT_FAST32_MAX) {
-                return std::pair<std::uint8_t, std::uint8_t>(0u, 0u);
+                return std::pair<std::uint_fast8_t, std::uint_fast8_t>(0u, 0u);
             }
-            std::uint8_t const encode = p[26u * index + 2u * hupai_index + (rong ? 1u : 0u)];
+            std::uint8_t const *p = static_cast<std::uint8_t const *>(p_);
+            std::uint_fast64_t const map_index
+                = (hupai_index * static_cast<std::uint_fast64_t>(Tsumonya::e) + index) * 2u
+                + (rong ? 1u : 0u);
+            std::uint8_t const encode = p[map_index];
 
-            std::uint8_t const fu = [](std::uint8_t encode) -> std::uint8_t {
-                std::uint8_t const fu_encode = encode / 19u;
+            std::uint_fast8_t const fu = [](std::uint8_t encode) -> std::uint_fast8_t {
+                std::uint_fast8_t const fu_encode = encode / 19u;
                 if (fu_encode == 0u) {
                     return 0u;
                 }
@@ -145,8 +155,8 @@ private:
                 return fu_encode * 10u;
             }(encode);
 
-            std::uint8_t const fan = [](std::uint8_t encode) -> std::uint8_t {
-                std::uint8_t const fan_encode = encode % 19u;
+            std::uint_fast8_t const fan = [](std::uint8_t encode) -> std::uint_fast8_t {
+                std::uint_fast8_t const fan_encode = encode % 19u;
                 if (fan_encode <= 12u) {
                     return fan_encode;
                 }
@@ -175,18 +185,15 @@ public:
         : p_impl_(new Impl_(map_path))
     {}
 
-    std::pair<std::uint8_t, std::uint8_t> operator()(
+    std::pair<std::uint_fast8_t, std::uint_fast8_t> operator()(
         Hand const &hand, ChiList const &chi_list, PengList const &peng_list,
-        GangList const &angang_list, GangList const &minggang_list, std::uint8_t hupai,
-        std::uint8_t num_red_tiles, Situation const &situation) const
+        GangList const &angang_list, GangList const &minggang_list, std::uint_fast8_t hupai,
+        std::uint_fast8_t num_red_tiles, Situation situation) const
     {
         if (hupai >= hand.size()) {
             std::ostringstream oss;
             oss << static_cast<unsigned>(hupai) << ": An invalid hupai.";
             throw std::invalid_argument(oss.str());
-        }
-        if (hand[hupai] == 0u) {
-            throw std::invalid_argument("`hand` does not contain `hupai`.");
         }
         if ((situation & zimo) == 0u && (situation & rong) == 0u) {
             throw std::invalid_argument("`Tsumonya::zimo` or `Tsumonya::rong` MUST be specified.");
@@ -292,12 +299,15 @@ public:
             throw std::invalid_argument("`Tsumonya::tianhu` and `Tsumonya::dihu` conflict.");
         }
 
-        std::uint8_t hupai_index = 0u;
-        for (std::uint8_t i = 0u;; ++i, ++hupai_index) {
-            while (i < hand.size() && hand[i] == 0u) {
+        Hand new_hand(hand);
+        ++new_hand[hupai];
+
+        std::uint_fast8_t hupai_index = 0u;
+        for (std::uint_fast8_t i = 0u;; ++i, ++hupai_index) {
+            while (i < new_hand.size() && new_hand[i] == 0u) {
                 ++i;
             }
-            if (i == hand.size()) {
+            if (i == new_hand.size()) {
                 throw std::logic_error("A logic error.");
             }
 
@@ -309,8 +319,6 @@ public:
             throw std::logic_error("A logic error.");
         }
 
-        Hand new_hand(hand);
-        ++new_hand[hupai];
         bool const is_rong = ((situation & rong) != 0u);
         auto [hu, fan] = (*p_impl_)(
             new_hand, chi_list, peng_list, angang_list, minggang_list, hupai_index, is_rong);

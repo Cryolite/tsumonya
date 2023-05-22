@@ -364,14 +364,16 @@ void createEntry(
         std::uint_fast8_t const rong_fu = python::extract<long>(rong_fu_);
         std::uint_fast8_t const rong_fan = python::extract<long>(rong_fan_);
         if (debugging) {
-            std::cout << "rong: (" << static_cast<unsigned>(rong_fu) << ", " << static_cast<unsigned>(rong_fan) << ")\n";
+            std::cout << "rong: (" << static_cast<unsigned>(rong_fu) << ", "
+                      << static_cast<unsigned>(rong_fan) << ")\n";
         }
 
-        std::uint_fast32_t const map_index = index * 13u + i;
+        std::uint_fast64_t const map_index = static_cast<std::uint_fast64_t>(index) * 13u + i;
         if (map_index >= map.size()) {
             dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
             std::ostringstream oss;
-            oss << static_cast<unsigned>(i) << " * " << Tsumonya::e << " + " << index << " = " << map_index << ": An out-of-bound index.";
+            oss << index << " * " << 13u << " + " << static_cast<unsigned>(i)
+                << " = " << map_index << ": An out-of-bound index.";
             throw std::logic_error(oss.str());
         }
         if (map[map_index].first == 0u && map[map_index].second == 0u) {
