@@ -7,7 +7,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <filesystem>
+#include <fstream>
 #include <sstream>
+#include <ios>
+#include <iterator>
+#include <vector>
 #include <string>
 #include <utility>
 #include <stdexcept>
@@ -77,9 +81,10 @@ private:
     class Impl_
     {
     public:
-        explicit Impl_(std::filesystem::path const &map_path)
-            : fd_(0)
+        explicit Impl_(std::filesystem::path const &map_path, bool full_fetch)
+            : fd_(-1)
             , p_(nullptr)
+            , array_()
             , hule_indexer_()
         {
             if (!std::filesystem::exists(map_path)) {
@@ -98,19 +103,30 @@ private:
                 throw std::runtime_error(oss.str());
             }
 
-            fd_ = open(map_path.c_str(), O_RDONLY);
-            if (fd_ == -1) {
-                std::ostringstream oss;
-                oss << map_path << ": Failed to open.";
-                throw std::runtime_error(oss.str());
+            if (full_fetch) {
+                std::ifstream ifs(map_path, std::ios_base::in | std::ios_base::binary);
+                std::istreambuf_iterator<char> iter(ifs);
+                std::istreambuf_iterator<char> jter;
+                array_.reserve(map_size_);
+                std::copy(iter, jter, std::back_inserter(array_));
+                array_.shrink_to_fit();
+                p_ = &array_[0u];
             }
+            else {
+                fd_ = open(map_path.c_str(), O_RDONLY);
+                if (fd_ == -1) {
+                    std::ostringstream oss;
+                    oss << map_path << ": Failed to open.";
+                    throw std::runtime_error(oss.str());
+                }
 
-            p_ = mmap(nullptr, map_size_, PROT_READ, MAP_PRIVATE, fd_, 0);
-            if (p_ == reinterpret_cast<void *>(-1)) {
-                close(fd_);
-                std::ostringstream oss;
-                oss << map_path << ": Failed to mmap.";
-                throw std::runtime_error(oss.str());
+                p_ = mmap(nullptr, map_size_, PROT_READ, MAP_PRIVATE, fd_, 0);
+                if (p_ == reinterpret_cast<void *>(-1)) {
+                    close(fd_);
+                    std::ostringstream oss;
+                    oss << map_path << ": Failed to mmap.";
+                    throw std::runtime_error(oss.str());
+                }
             }
         }
 
@@ -118,8 +134,10 @@ private:
 
         ~Impl_()
         {
-            munmap(p_, map_size_);
-            close(fd_);
+            if (fd_ != -1) {
+                munmap(p_, map_size_);
+                close(fd_);
+            }
         }
 
         Impl_ &operator=(Impl_ const &) = delete;
@@ -169,20 +187,21 @@ private:
     private:
         int fd_;
         void *p_;
+        std::vector<std::uint8_t> array_;
         Tsumonya::HuleIndexer hule_indexer_;
     }; // class Impl_
 
 public:
-    explicit Calculator(char const *map_path)
-        : Calculator(std::filesystem::path(map_path))
+    explicit Calculator(char const *map_path, bool full_fetch = false)
+        : Calculator(std::filesystem::path(map_path), full_fetch)
     {}
 
-    explicit Calculator(std::string const &map_path)
-        : Calculator(std::filesystem::path(map_path))
+    explicit Calculator(std::string const &map_path, bool full_fetch = false)
+        : Calculator(std::filesystem::path(map_path), full_fetch)
     {}
 
-    explicit Calculator(std::filesystem::path const &map_path)
-        : p_impl_(new Impl_(map_path))
+    explicit Calculator(std::filesystem::path const &map_path, bool full_fetch = false)
+        : p_impl_(new Impl_(map_path, full_fetch))
     {}
 
     std::pair<std::uint_fast8_t, std::uint_fast8_t> operator()(

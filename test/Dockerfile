@@ -55,6 +55,15 @@ RUN set -euxo pipefail; \
       toolset=gcc variant=release threading=multi link=shared runtime-link=shared; \
     rm -rf /workspace/boost
 
+COPY --chown=ubuntu:ubuntu . /workspace/tsumonya
 WORKDIR /workspace/tsumonya
 
-ENTRYPOINT ["./build.sh"]
+RUN set -euxo pipefail; \
+    gunzip -k map.bin.gz; \
+    mkdir build; \
+    pushd build; \
+    cmake -DCMAKE_BUILD_TYPE=Release ..; \
+    make -j$(nproc) verbose=1; \
+    popd
+
+ENTRYPOINT ["bash", "-c", "time build/test_calculator"]

@@ -202,7 +202,7 @@ void enumerateNormalHule(
 
 int main()
 {
-    Tsumonya::Calculator calculator("map.bin");
+    Tsumonya::Calculator calculator("map.bin", true);
 
     Tsumonya::Hand hand{
         0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
