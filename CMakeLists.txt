@@ -112,6 +112,4 @@ find_package(Boost
 add_compile_definitions(BOOST_STACKTRACE_USE_BACKTRACE)
 
 add_subdirectory(src)
-
-#add_executable(test_calculator
-#  test/calculator.cpp)
+add_subdirectory(test)

@@ -68,46 +68,60 @@ void calculate(
 {
     constexpr bool debugging = false;
 
-    for (std::uint_fast8_t i = 0u, hupai_index = 0u;; ++i, ++hupai_index) {
-        while (i < hand.size() && hand[i] == 0u) {
-            ++i;
-        }
-        if (i >= hand.size()) {
-            break;
-        }
+    std::array<Tsumonya::Wind, 4u> winds = {
+        Tsumonya::east, Tsumonya:: south, Tsumonya:: west, Tsumonya::north
+    };
 
-        if (hupai_index >= 13u) {
-            throw std::logic_error("A logic error.");
-        }
+    for (std::uint_fast8_t round_wind_ = 0u; round_wind_ < 3u; ++round_wind_) {
+        Tsumonya::Wind const round_wind = winds[round_wind_];
 
-        Hand new_hand(hand);
-        --new_hand[i];
+        for (std::uint_fast8_t player_wind_ = 0u; player_wind_ < 4u; ++player_wind_) {
+            Tsumonya::Wind const player_wind = winds[player_wind_];
 
-        {
-            auto const [fu, fan] = calculator(
-                new_hand, chi_list, peng_list, angang_list, minggang_list, i, 0u, zimo);
-            if constexpr (debugging) {
-                dump(hand, chi_list, peng_list, angang_list, minggang_list, i, fu, fan);
-            }
-            if (fu == 0u && fan == 0u) {
-                if constexpr (!debugging) {
-                    dump(hand, chi_list, peng_list, angang_list, minggang_list, i, fu, fan);
+            for (std::uint_fast8_t i = 0u, hupai_index = 0u;; ++i, ++hupai_index) {
+                while (i < hand.size() && hand[i] == 0u) {
+                    ++i;
                 }
-                throw std::logic_error("A logic error.");
-            }
-        }
-
-        {
-            auto const [fu, fan] = calculator(
-                new_hand, chi_list, peng_list, angang_list, minggang_list, i, 0u, rong);
-            if constexpr (debugging) {
-                dump(hand, chi_list, peng_list, angang_list, minggang_list, i, fu, fan);
-            }
-            if (fu == 0u && fan == 0u) {
-                if constexpr (!debugging) {
-                    dump(hand, chi_list, peng_list, angang_list, minggang_list, i, fu, fan);
+                if (i >= hand.size()) {
+                    break;
                 }
-                throw std::logic_error("A logic error.");
+
+                if (hupai_index >= 13u) {
+                    throw std::logic_error("A logic error.");
+                }
+
+                Hand new_hand(hand);
+                --new_hand[i];
+
+                {
+                    auto const [fu, fan] = calculator(
+                        round_wind, player_wind, new_hand, chi_list, peng_list, angang_list,
+                        minggang_list, i, 0u, zimo);
+                    if constexpr (debugging) {
+                        dump(hand, chi_list, peng_list, angang_list, minggang_list, i, fu, fan);
+                    }
+                    if (fu == 0u && fan == 0u) {
+                        if constexpr (!debugging) {
+                            dump(hand, chi_list, peng_list, angang_list, minggang_list, i, fu, fan);
+                        }
+                        throw std::logic_error("A logic error.");
+                    }
+                }
+
+                {
+                    auto const [fu, fan] = calculator(
+                        round_wind, player_wind, new_hand, chi_list, peng_list, angang_list,
+                        minggang_list, i, 0u, rong);
+                    if constexpr (debugging) {
+                        dump(hand, chi_list, peng_list, angang_list, minggang_list, i, fu, fan);
+                    }
+                    if (fu == 0u && fan == 0u) {
+                        if constexpr (!debugging) {
+                            dump(hand, chi_list, peng_list, angang_list, minggang_list, i, fu, fan);
+                        }
+                        throw std::logic_error("A logic error.");
+                    }
+                }
             }
         }
     }
@@ -202,7 +216,7 @@ void enumerateNormalHule(
 
 int main()
 {
-    Tsumonya::Calculator calculator("map.bin", true);
+    Tsumonya::Calculator calculator("map.bin");
 
     Tsumonya::Hand hand{
         0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,

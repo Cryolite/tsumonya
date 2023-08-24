@@ -171,8 +171,10 @@ private:
                 if (wind_head_type == UINT_FAST8_MAX) {
                     return (index * 13u + hupai_index) * 2u + (rong ? 1u : 0u);
                 }
+                assert((index >= Tsumonya::Normal::Base::e));
+                assert((index < Tsumonya::Normal::Base::e + Tsumonya::Normal::WindHead::e));
                 return Tsumonya::Normal::Base::e * 13u * 2u
-                    + ((index * 3u + wind_head_type) * 13u + hupai_index) * 2u + (rong ? 1u : 0u);
+                    + (((index - Tsumonya::Normal::Base::e) * 3u + wind_head_type) * 13u + hupai_index) * 2u + (rong ? 1u : 0u);
             }();
             std::uint8_t const encode = p_[map_index];
 

@@ -336,7 +336,9 @@ void createEntry(
                     }
 
                     std::uint_fast64_t const map_index = [&]() -> std::uint_fast64_t{
-                        std::uint_fast64_t map_index = index;
+                        assert((index >= Tsumonya::Normal::Base::e));
+                        assert((index < Tsumonya::Normal::Base::e + Tsumonya::Normal::WindHead::e));
+                        std::uint_fast64_t map_index = index - Tsumonya::Normal::Base::e;
                         map_index = map_index * 3u + wind_head_type;
                         map_index = map_index * 13u + i;
                         map_index *= 2u;
