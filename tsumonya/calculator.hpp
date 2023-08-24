@@ -1,8 +1,9 @@
 #if !defined(TSUMONYA_CALCULATOR_HPP_INCLUDE_GUARD)
 #define TSUMONYA_CALCULATOR_HPP_INCLUDE_GUARD
 
-#include <tsumonya/hule_indexer.hpp>
-#include <tsumonya/table.hpp>
+#include <tsumonya/normal/hule_indexer.hpp>
+#include <tsumonya/normal/wind_head/table.hpp>
+#include <tsumonya/normal/base/table.hpp>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -21,6 +22,20 @@
 
 namespace Tsumonya{
 
+enum Wind
+    : std::uint_fast8_t
+{
+    east_  = 0u,
+    south_ = 1u,
+    west_  = 2u,
+    north_ = 3u,
+};
+
+inline constexpr Wind east(east_);
+inline constexpr Wind south(south_);
+inline constexpr Wind west(west_);
+inline constexpr Wind north(north_);
+
 enum Situation
     : std::uint_fast16_t
 {
@@ -35,7 +50,7 @@ enum Situation
     yifa_             = 1u <<  8u,
     tianhu_           = 1u <<  9u,
     dihu_             = 1u << 10u
-}; // enum Situation
+};
 
 inline constexpr Situation zimo(zimo_);
 inline constexpr Situation rong(rong_);
@@ -76,14 +91,15 @@ constexpr Situation &operator|=(Situation &lhs, Situation rhs)
 class Calculator
 {
 private:
-    static constexpr std::uint_fast64_t map_size_ = 28u * Tsumonya::e;
+    static constexpr std::uint_fast64_t map_size_
+        = static_cast<std::uint_fast64_t>(Tsumonya::Normal::Base::e) * 13u * 2u
+        + static_cast<std::uint_fast64_t>(Tsumonya::Normal::WindHead::e) * 3u * 13u * 2u;
 
     class Impl_
     {
     public:
-        explicit Impl_(std::filesystem::path const &map_path, bool full_fetch)
-            : fd_(-1)
-            , p_(nullptr)
+        explicit Impl_(std::filesystem::path const &map_path)
+            : p_(nullptr)
             , array_()
             , hule_indexer_()
         {
@@ -103,46 +119,21 @@ private:
                 throw std::runtime_error(oss.str());
             }
 
-            if (full_fetch) {
-                std::ifstream ifs(map_path, std::ios_base::in | std::ios_base::binary);
-                std::istreambuf_iterator<char> iter(ifs);
-                std::istreambuf_iterator<char> jter;
-                array_.reserve(map_size_);
-                std::copy(iter, jter, std::back_inserter(array_));
-                array_.shrink_to_fit();
-                p_ = &array_[0u];
-            }
-            else {
-                fd_ = open(map_path.c_str(), O_RDONLY);
-                if (fd_ == -1) {
-                    std::ostringstream oss;
-                    oss << map_path << ": Failed to open.";
-                    throw std::runtime_error(oss.str());
-                }
-
-                p_ = mmap(nullptr, map_size_, PROT_READ, MAP_PRIVATE, fd_, 0);
-                if (p_ == reinterpret_cast<void *>(-1)) {
-                    close(fd_);
-                    std::ostringstream oss;
-                    oss << map_path << ": Failed to mmap.";
-                    throw std::runtime_error(oss.str());
-                }
-            }
+            std::ifstream ifs(map_path, std::ios_base::in | std::ios_base::binary);
+            std::istreambuf_iterator<char> iter(ifs);
+            std::istreambuf_iterator<char> jter;
+            array_.reserve(map_size_);
+            std::copy(iter, jter, std::back_inserter(array_));
+            array_.shrink_to_fit();
+            p_ = &array_[0u];
         }
 
         Impl_(Impl_ const &) = delete;
 
-        ~Impl_()
-        {
-            if (fd_ != -1) {
-                munmap(p_, map_size_);
-                close(fd_);
-            }
-        }
-
         Impl_ &operator=(Impl_ const &) = delete;
 
         std::pair<std::uint_fast8_t, std::uint_fast8_t> operator()(
+            Wind const round_wind, Wind const player_wind,
             Hand const &hand, ChiList const &chi_list, PengList const &peng_list,
             GangList const &angang_list, GangList const &minggang_list,
             std::uint_fast8_t hupai_index, bool rong) const
@@ -152,63 +143,111 @@ private:
             if (index == UINT_FAST32_MAX) {
                 return std::pair<std::uint_fast8_t, std::uint_fast8_t>(0u, 0u);
             }
-            std::uint8_t const *p = static_cast<std::uint8_t const *>(p_);
-            std::uint_fast64_t const map_index
-                = (hupai_index * static_cast<std::uint_fast64_t>(Tsumonya::e) + index) * 2u
-                + (rong ? 1u : 0u);
-            std::uint8_t const encode = p[map_index];
 
-            std::uint_fast8_t const fu = [](std::uint8_t encode) -> std::uint_fast8_t {
-                std::uint_fast8_t const fu_encode = encode / 19u;
-                if (fu_encode == 0u) {
+            std::uint_fast8_t const wind_head_type = [&]() -> std::uint_fast8_t{
+                std::uint_fast8_t const wind_head = [&]() -> std::uint_fast8_t{
+                    for (std::uint_fast8_t w = 0u; w < 4u; ++w) {
+                        if (hand[27u + w] == 2u) {
+                            return w;
+                        }
+                    }
+                    return UINT_FAST8_MAX;
+                }();
+                if (wind_head == UINT_FAST8_MAX) {
+                    return UINT_FAST8_MAX;
+                }
+                if (wind_head != round_wind && wind_head != player_wind) {
                     return 0u;
                 }
-                else if (fu_encode == 1u) {
-                    return 20u;
+                if (wind_head == round_wind && wind_head != player_wind || wind_head != round_wind && wind_head == player_wind) {
+                    return 1u;
                 }
-                else if (fu_encode == 2u) {
-                    return 25u;
+                assert((wind_head == round_wind));
+                assert((wind_head == player_wind));
+                return 2u;
+            }();
+
+            std::uint_fast64_t const map_index = [&]() -> std::uint_fast64_t{
+                if (wind_head_type == UINT_FAST8_MAX) {
+                    return (index * 13u + hupai_index) * 2u + (rong ? 1u : 0u);
                 }
+                return Tsumonya::Normal::Base::e * 13u * 2u
+                    + ((index * 3u + wind_head_type) * 13u + hupai_index) * 2u + (rong ? 1u : 0u);
+            }();
+            std::uint8_t const encode = p_[map_index];
 
-                return fu_encode * 10u;
-            }(encode);
-
-            std::uint_fast8_t const fan = [](std::uint8_t encode) -> std::uint_fast8_t {
-                std::uint_fast8_t const fan_encode = encode % 19u;
-                if (fan_encode <= 12u) {
-                    return fan_encode;
-                }
-                return (fan_encode - 12u) * 13u;
-            }(encode);
-
-            return std::make_pair(fu, fan);
+            return fu_fan_table[encode];
         }
 
     private:
-        int fd_;
-        void *p_;
+        std::uint_fast8_t const *p_;
         std::vector<std::uint8_t> array_;
-        Tsumonya::HuleIndexer hule_indexer_;
-    }; // class Impl_
+        Tsumonya::Normal::HuleIndexer hule_indexer_;
+    };
 
 public:
-    explicit Calculator(char const *map_path, bool full_fetch = false)
-        : Calculator(std::filesystem::path(map_path), full_fetch)
+    explicit Calculator(char const *map_path)
+        : Calculator(std::filesystem::path(map_path))
     {}
 
-    explicit Calculator(std::string const &map_path, bool full_fetch = false)
-        : Calculator(std::filesystem::path(map_path), full_fetch)
+    explicit Calculator(std::string const &map_path)
+        : Calculator(std::filesystem::path(map_path))
     {}
 
-    explicit Calculator(std::filesystem::path const &map_path, bool full_fetch = false)
-        : p_impl_(new Impl_(map_path, full_fetch))
+    explicit Calculator(std::filesystem::path const &map_path)
+        : p_impl_(new Impl_(map_path))
     {}
 
     std::pair<std::uint_fast8_t, std::uint_fast8_t> operator()(
+        Wind const round_wind, Wind const player_wind,
         Hand const &hand, ChiList const &chi_list, PengList const &peng_list,
-        GangList const &angang_list, GangList const &minggang_list, std::uint_fast8_t hupai,
-        std::uint_fast8_t num_red_tiles, Situation situation) const
+        GangList const &angang_list, GangList const &minggang_list, std::uint_fast8_t const hupai,
+        std::uint_fast8_t const num_red_tiles, Situation const situation) const
     {
+        {
+            std::uint_fast16_t total = 0u;
+
+            for (std::uint_fast8_t i = 0u; i < 27u; ++i) {
+                std::uint_fast8_t const color = i / 9u;
+                std::uint_fast8_t const number = i % 9u;
+                std::uint_fast8_t const cindex = color * 7u + number;
+                std::uint_fast8_t const c = [&]() -> std::uint_fast8_t {
+                    if (number == 0u) {
+                        return chi_list[cindex];
+                    }
+                    assert((cindex >= 1u));
+                    if (number == 1u) {
+                        return chi_list[cindex - 1u] + chi_list[cindex];
+                    }
+                    assert((cindex >= 2u));
+                    if (2u <= number && number <= 6u) {
+                        return chi_list[cindex - 2u] + chi_list[cindex - 1u] + chi_list[cindex];
+                    }
+                    if (number == 7u) {
+                        return chi_list[cindex - 2u] + chi_list[cindex - 1u];
+                    }
+                    return chi_list[cindex - 2u];
+                }();
+
+                if (hand[i] + c + 3u * peng_list[i] + 4u * angang_list[i] + 4u * minggang_list[i] > 4u) {
+                    throw std::invalid_argument("Invalid arguments.");
+                }
+
+                total += hand[i] + c + 3u * (peng_list[i] + angang_list[i] + minggang_list[i]);
+            }
+            for (std::uint_fast8_t i = 27u; i < 34u; ++i) {
+                if (hand[i] + 3u * peng_list[i] + 4u * angang_list[i] + 4u * minggang_list[i] > 4u) {
+                    throw std::invalid_argument("Invalid arguments.");
+                }
+
+                total += hand[i] + 3u * (peng_list[i] + angang_list[i] + minggang_list[i]);
+            }
+
+            if (total != 13u) {
+                throw std::invalid_argument("Invalid arguments.");
+            }
+        }
+
         if (hupai >= hand.size()) {
             std::ostringstream oss;
             oss << static_cast<unsigned>(hupai) << ": An invalid hupai.";
@@ -340,7 +379,8 @@ public:
 
         bool const is_rong = ((situation & rong) != 0u);
         auto [hu, fan] = (*p_impl_)(
-            new_hand, chi_list, peng_list, angang_list, minggang_list, hupai_index, is_rong);
+            round_wind, player_wind, hand, chi_list, peng_list, angang_list, minggang_list,
+            hupai_index, is_rong);
 
         if (fan >= 13u) {
             if ((situation & tianhu) != 0u) {
@@ -352,6 +392,17 @@ public:
             return std::make_pair(hu, fan);
         }
 
+        for (std::uint_fast8_t w = 0u; w < 4u; ++w) {
+            if (hand[27u + w] != 3u && minggang_list[27u + w] != 1u && angang_list[27u + w] != 1u && minggang_list[27u + w] != 1u) {
+                continue;
+            }
+            if (round_wind == w) {
+                ++fan;
+            }
+            if (player_wind == w) {
+                ++fan;
+            }
+        }
         fan += num_red_tiles;
         if ((situation & liqi) != 0u) {
             fan += 1u;
@@ -375,14 +426,15 @@ public:
         if (fan > 13u) {
             fan = 13u;
         }
+
         return std::make_pair(hu, fan);
     }
 
 private:
     std::shared_ptr<Impl_ const> p_impl_;
-}; // class Calculator
+};
 
-} // namespace Tsumonya
+}
 
 
-#endif // !defined(TSUMONYA_CALCULATOR_HPP_INCLUDE_GUARD)
+#endif

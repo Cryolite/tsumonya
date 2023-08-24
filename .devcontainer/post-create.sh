@@ -16,7 +16,11 @@ sudo apt-get -y update
 sudo apt-get -y dist-upgrade
 sudo apt-get -y install \
   g++ \
+  git-lfs \
+  python3 \
   python3-dev
+
+git lfs install
 
 sudo chown vscode:vscode /workspaces
 
@@ -34,27 +38,22 @@ popd
 
 # Install GCC.
 /workspaces/prerequisites/gcc/install --debug --prefix "$HOME/.local"
-
 if [[ -v C_INCLUDE_PATH ]]; then
   OLD_C_INCLUDE_PATH="$C_INCLUDE_PATH"
 fi
 export C_INCLUDE_PATH="$HOME/.local/include${C_INCLUDE_PATH:+:$C_INCLUDE_PATH}"
-
 if [[ -v CPLUS_INCLUDE_PATH ]]; then
   OLD_CPLUS_INCLUDE_PATH="$CPLUS_INCLUDE_PATH"
 fi
 export CPLUS_INCLUDE_PATH="$HOME/.local/include${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}"
-
 if [[ -v LIBRARY_PATH ]]; then
   OLD_LIBRARY_PATH="$LIBRARY_PATH"
 fi
 export LIBRARY_PATH="$HOME/.local/lib64:$HOME/.local/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
-
 if [[ -v LD_LIBRARY_PATH ]]; then
   OLD_LD_LIBRARY_PATH="$LD_LIBRARY_PATH"
 fi
 export LD_LIBRARY_PATH="$HOME/.local/lib64:$HOME/.local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-
 if [[ -v PATH ]]; then
   OLD_PATH="$PATH"
 fi

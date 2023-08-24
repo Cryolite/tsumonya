@@ -111,18 +111,7 @@ find_package(Boost
 
 add_compile_definitions(BOOST_STACKTRACE_USE_BACKTRACE)
 
-add_executable(build_table
-  build_table.cpp)
-target_link_libraries(build_table
-  PRIVATE Boost::headers)
+add_subdirectory(src)
 
-add_executable(build_map
-  build_map.cpp)
-target_link_libraries(build_map
-  PRIVATE Boost::python
-  PRIVATE Boost::timer
-  PRIVATE Boost::headers
-  PRIVATE python"${PYTHON_VERSION}")
-
-add_executable(test_calculator
-  test/calculator.cpp)
+#add_executable(test_calculator
+#  test/calculator.cpp)
