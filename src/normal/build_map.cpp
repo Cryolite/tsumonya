@@ -32,33 +32,35 @@ using Tsumonya::mtable;
 using Tsumonya::ntable;
 using Tsumonya::xytable;
 using Tsumonya::Hand;
-using Tsumonya::ChiList;
 using Tsumonya::PengList;
+using Tsumonya::ChiList;
 using Tsumonya::GangList;
-using Tsumonya::encodeFuFan;
+using Tsumonya::Normal::upper_bound;
 using Tsumonya::Normal::HuleIndexer;
 
-using Map = std::vector<std::uint8_t>;
+using Map = std::vector<std::pair<std::uint8_t, std::uint8_t>>;
 
 void dumpEntry(
-    Hand const &hand, ChiList const &chi_list, PengList const &peng_list,
-    GangList const &angang_list, GangList const &minggang_list, std::ostream &os)
+    Hand const &hand, PengList const &peng_list, ChiList const &chi_list,
+    GangList const &angang_list, GangList const &minggang_list,
+    std::uint_fast8_t const winning_tile, bool const rong, std::ostream &os)
 {
     os << "hand = ";
     for (unsigned h : hand) {
         os << h << ',';
+    }
+    os << " (" << static_cast<unsigned>(winning_tile) << ", ";
+    os << (!rong ? "zimo)" : "rong)") << '\n';
+
+    os << "peng = ";
+    for (unsigned p : peng_list) {
+        os << p << ',';
     }
     os << '\n';
 
     os << "chi = ";
     for (unsigned c : chi_list) {
         os << c << ',';
-    }
-    os << '\n';
-
-    os << "peng = ";
-    for (unsigned p : peng_list) {
-        os << p << ',';
     }
     os << '\n';
 
@@ -76,40 +78,41 @@ void dumpEntry(
 }
 
 void createEntry(
-    Hand const &hand, ChiList const &chi_list, PengList const &peng_list,
+    Hand const &hand, PengList const &peng_list, ChiList const &chi_list,
     GangList const &angang_list, GangList const &minggang_list,
-    Map &map, std::uint_fast32_t &count, cpu_timer const &timer)
+    std::uint_fast8_t const winning_tile, bool rong, Map &map,
+    std::uint_fast32_t &count, cpu_timer const &timer)
 {
     constexpr bool debugging = false;
 
     Tsumonya::Normal::HuleIndexer indexer;
 
-    std::uint_fast32_t const index = [&]() -> std::uint_fast32_t {
+    std::uint_fast64_t const index = [&]() -> std::uint_fast64_t {
         try {
-            std::uint_fast32_t const index = indexer(hand, chi_list, peng_list, angang_list, minggang_list);
-            if (index == -1) {
+            std::uint_fast64_t const index = indexer(
+                hand, peng_list, chi_list, angang_list, minggang_list, winning_tile, rong);
+            if (index == UINT_FAST64_MAX) {
                 throw std::logic_error("Failed to index a hule.");
             }
-            std::uint_fast32_t const e = Tsumonya::Normal::Base::e + Tsumonya::Normal::WindHead::e;
-            if (index >= e) {
+            if (index >= upper_bound) {
                 std::ostringstream oss;
-                oss << index << " (>= " << e << ")" << ": An out-of-bound index.";
+                oss << index << " (>= " << upper_bound << ")" << ": An out-of-bound index.";
                 throw std::logic_error(oss.str());
             }
             return index;
         }
         catch (...) {
-            dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
+            dumpEntry(
+                hand, peng_list, chi_list, angang_list, minggang_list, winning_tile, rong,
+                std::cerr);
             throw;
         }
     }();
 
-    bool const wind_head = index >= Tsumonya::Normal::Base::e;
-
     if (debugging) {
-        dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cout);
+        dumpEntry(
+            hand, peng_list, chi_list, angang_list, minggang_list, winning_tile, rong, std::cout);
         std::cout << "index = " << index << std::endl;
-        std::cout << "wind head = " << wind_head << std::endl;
     }
 
     python::object m_constants = python::import("mahjong.constants");
@@ -126,6 +129,24 @@ void createEntry(
     }
 
     python::list melds;
+    for (std::uint_fast8_t i = 0u; i < 34u; ++i) {
+        if (peng_list[i] == 1u) {
+            // `tiles34` must contain fulus' tiles.
+            tiles34[i] += 3u;
+
+            python::list mtiles;
+            for (std::uint_fast8_t j = 0u; j < 3u; ++j) {
+                mtiles.append(i * 4u + j);
+            }
+
+            args = python::tuple();
+            kwargs = python::dict();
+            kwargs["meld_type"] = m_meld.attr("Meld").attr("PON");
+            kwargs["tiles"] = mtiles;
+            python::object meld = m_meld.attr("Meld")(*args, **kwargs);
+            melds.append(meld);
+        }
+    }
     for (std::uint_fast8_t i = 0u; i < 21u; ++i) {
         for (std::uint_fast8_t j = 0u; j < chi_list[i]; ++j) {
             std::uint_fast8_t const color = i / 7u;
@@ -144,25 +165,7 @@ void createEntry(
 
             args = python::tuple();
             kwargs = python::dict();
-            kwargs["meld_type"] = "chi";
-            kwargs["tiles"] = mtiles;
-            python::object meld = m_meld.attr("Meld")(*args, **kwargs);
-            melds.append(meld);
-        }
-    }
-    for (std::uint_fast8_t i = 0u; i < 34u; ++i) {
-        if (peng_list[i] == 1u) {
-            // `tiles34` must contain fulus' tiles.
-            tiles34[i] += 3u;
-
-            python::list mtiles;
-            for (std::uint_fast8_t j = 0u; j < 3u; ++j) {
-                mtiles.append(i * 4u + j);
-            }
-
-            args = python::tuple();
-            kwargs = python::dict();
-            kwargs["meld_type"] = "pon";
+            kwargs["meld_type"] = m_meld.attr("Meld").attr("CHI");
             kwargs["tiles"] = mtiles;
             python::object meld = m_meld.attr("Meld")(*args, **kwargs);
             melds.append(meld);
@@ -180,8 +183,9 @@ void createEntry(
 
             args = python::tuple();
             kwargs = python::dict();
-            kwargs["meld_type"] = "kan";
+            kwargs["meld_type"] = m_meld.attr("Meld").attr("KAN");
             kwargs["tiles"] = mtiles;
+            kwargs["opened"] = false;
             python::object meld = m_meld.attr("Meld")(*args, **kwargs);
             melds.append(meld);
         }
@@ -198,21 +202,13 @@ void createEntry(
 
             args = python::tuple();
             kwargs = python::dict();
-            kwargs["meld_type"] = "kan";
+            kwargs["meld_type"] = m_meld.attr("Meld").attr("KAN");
             kwargs["tiles"] = mtiles;
             kwargs["opened"] = true;
             python::object meld = m_meld.attr("Meld")(*args, **kwargs);
             melds.append(meld);
         }
     }
-
-    //if (debugging) {
-    //    std::cout << "tiles34 = ";
-    //    for (std::uint_fast8_t i = 0u; i < 34u; ++i) {
-    //        std::cout << python::extract<long>(tiles34[i]) << ',';
-    //    }
-    //    std::cout << '\n';
-    //}
 
     python::list tiles134;
     for (std::uint_fast8_t i = 0u; i < 34u; ++i) {
@@ -222,247 +218,72 @@ void createEntry(
             }
         }
     }
-    //if (debugging) {
-    //    std::cout << "tiles134 = ";
-    //    for (std::uint_fast8_t i = 0u; i < python::len(tiles134); ++i) {
-    //        std::cout << python::extract<long>(tiles134[i]) << ',';
-    //    }
-    //    std::cout << '\n';
-    //}
 
     args = python::tuple();
     kwargs = python::dict();
     kwargs["has_open_tanyao"] = true;
     python::object optional_rules = m_hand_config.attr("OptionalRules")(*args, **kwargs);
 
+    args = python::tuple();
+    kwargs = python::dict();
+    kwargs["is_tsumo"] = !rong;
+    kwargs["options"] = optional_rules;
+    python::object hand_config = m_hand_config.attr("HandConfig")(*args, **kwargs);
+
     python::object hand_calculator = m_hand.attr("HandCalculator")();
+    args = python::make_tuple(tiles134, winning_tile * 4u);
+    kwargs = python::dict();
+    kwargs["melds"] = melds;
+    kwargs["config"] = hand_config;
+    python::object hand_response = hand_calculator.attr("estimate_hand_value")(*args, **kwargs);
 
-    if (wind_head) {
-        python::object east = m_constants.attr("EAST");
-        python::object south = m_constants.attr("SOUTH");
-        python::object west = m_constants.attr("WEST");
-        python::object north = m_constants.attr("NORTH");
-
-        std::array<python::object, 3u> round_winds = { east, south, west };
-        std::array<python::object, 4u> player_winds = { east, south, west, north };
-
-        for (std::uint_fast8_t round_wind_ = 0u; round_wind_ < round_winds.size(); ++round_wind_) {
-            python::object round_wind = round_winds[round_wind_];
-
-            for (std::uint_fast8_t player_wind_ = 0u; player_wind_ < player_winds.size(); ++player_wind_) {
-                python::object player_wind = player_winds[player_wind_];
-
-                std::uint_fast8_t wind_head_type = 0u;
-                for (std::uint_fast8_t w = 0u; w < 4u; ++w) {
-                    if (hand[27u + w] == 2u) {
-                        if (round_wind_ == w && player_wind_ != w || round_wind_ != w && player_wind_ == w) {
-                            wind_head_type = 1u;
-                        }
-                        if (round_wind_ == w && player_wind_ == w) {
-                            wind_head_type = 2u;
-                        }
-                    }
-                }
-
-                for (std::uint_fast8_t i = 0u, hupai_index = 0u;; ++i, ++hupai_index) {
-                    while (hupai_index < 34u && hand[hupai_index] == 0u) {
-                        ++hupai_index;
-                    }
-                    if (hupai_index == 34u) {
-                        break;
-                    }
-
-                    if (debugging) {
-                        std::cout << "hupai index = " << static_cast<unsigned>(i) << std::endl;
-                    }
-
-                    python::long_ hupai(hupai_index * 4u);
-                    if (debugging) {
-                        //std::cout << "hupai = " << python::extract<long>(hupai) << '\n';
-                    }
-
-                    args = python::tuple();
-                    kwargs = python::dict();
-                    kwargs["round_wind"] = round_wind;
-                    kwargs["player_wind"] = player_wind;
-                    kwargs["is_tsumo"] = true;
-                    kwargs["options"] = optional_rules;
-                    python::object tsumo_config = m_hand_config.attr("HandConfig")(*args, **kwargs);
-
-                    args = python::make_tuple(tiles134, hupai);
-                    kwargs = python::dict();
-                    kwargs["melds"] = melds;
-                    kwargs["config"] = tsumo_config;
-                    python::object hand_response = hand_calculator.attr("estimate_hand_value")(*args, **kwargs);
-                    python::object zimo_fu_ = hand_response.attr("fu");
-                    python::object zimo_fan_ = hand_response.attr("han");
-                    if (zimo_fu_.is_none() || zimo_fan_.is_none()) {
-                        dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
-                        python::object error_ = hand_response.attr("error");
-                        std::string error = python::extract<std::string>(error_);
-                        throw std::logic_error(error);
-                    }
-                    std::uint_fast8_t const zimo_fu = python::extract<long>(zimo_fu_);
-                    std::uint_fast8_t const zimo_fan = python::extract<long>(zimo_fan_);
-                    if (debugging) {
-                        std::cout << "zimo: (" << static_cast<unsigned>(zimo_fu) << ", " << static_cast<unsigned>(zimo_fan) << ")\n";
-                    }
-
-                    args = python::tuple();
-                    kwargs = python::dict();
-                    kwargs["round_wind"] = round_wind;
-                    kwargs["player_wind"] = player_wind;
-                    kwargs["options"] = optional_rules;
-                    python::object rong_config = m_hand_config.attr("HandConfig")(*args, **kwargs);
-
-                    args = python::make_tuple(tiles134, hupai);
-                    kwargs = python::dict();
-                    kwargs["melds"] = melds;
-                    kwargs["config"] = rong_config;
-                    hand_response = hand_calculator.attr("estimate_hand_value")(*args, **kwargs);
-                    python::object rong_fu_ = hand_response.attr("fu");
-                    python::object rong_fan_ = hand_response.attr("han");
-                    if (rong_fu_.is_none() || rong_fan_.is_none()) {
-                        dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
-                        python::object error_ = hand_response.attr("error");
-                        std::string error = python::extract<std::string>(error_);
-                        throw std::logic_error(error);
-                    }
-                    std::uint_fast8_t const rong_fu = python::extract<long>(rong_fu_);
-                    std::uint_fast8_t const rong_fan = python::extract<long>(rong_fan_);
-                    if (debugging) {
-                        std::cout << "rong: (" << static_cast<unsigned>(rong_fu) << ", "
-                                  << static_cast<unsigned>(rong_fan) << ")\n";
-                    }
-
-                    std::uint_fast64_t const map_index = [&]() -> std::uint_fast64_t{
-                        assert((index >= Tsumonya::Normal::Base::e));
-                        assert((index < Tsumonya::Normal::Base::e + Tsumonya::Normal::WindHead::e));
-                        std::uint_fast64_t map_index = index - Tsumonya::Normal::Base::e;
-                        map_index = map_index * 3u + wind_head_type;
-                        map_index = map_index * 13u + i;
-                        map_index *= 2u;
-                        return Tsumonya::Normal::Base::e * 13u * 2u + map_index;
-                    }();
-                    if (map_index >= map.size()) {
-                        dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
-                        std::ostringstream oss;
-                        oss << map_index << ": An out-of-bound index.";
-                        throw std::logic_error(oss.str());
-                    }
-                    if (map[map_index] == 0u && map[map_index + 1u] == 0u) {
-                        map[map_index] = encodeFuFan(zimo_fu, zimo_fan);
-                        map[map_index + 1u] = encodeFuFan(rong_fu, rong_fan);
-                    }
-                    else {
-                        if (encodeFuFan(zimo_fu, zimo_fan) != map[map_index]) {
-                            dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
-                            throw std::logic_error("Indices are in conflict.");
-                        }
-                        if (encodeFuFan(rong_fu, rong_fan) != map[map_index + 1u]) {
-                            dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
-                            throw std::logic_error("Indices are in conflict.");
-                        }
-                    }
-                }
-            }
+    std::uint_fast8_t fu = 0u;
+    {
+        python::object fu_details = hand_response.attr("fu_details");
+        if (fu_details.is_none()) {
+            dumpEntry(
+                hand, peng_list, chi_list, angang_list, minggang_list, winning_tile, rong,
+                std::cerr);
+            throw std::logic_error("A logic error.");
+        }
+        for (long i = 0; i < python::len(fu_details); ++i) {
+            python::object fu_detail = fu_details[i];
+            python::object fu_ = fu_detail["fu"];
+            fu += python::extract<long>(fu_);
         }
     }
+
+    std::uint_fast8_t const fan = [&]() -> std::uint_fast8_t {
+        python::object fan_ = hand_response.attr("han");
+        if (fan_.is_none()) {
+            dumpEntry(
+                hand, peng_list, chi_list, angang_list, minggang_list, winning_tile, rong,
+                std::cerr);
+            python::object error_ = hand_response.attr("error");
+            std::string error = python::extract<std::string>(error_);
+            throw std::logic_error(error);
+        }
+        return python::extract<long>(fan_);
+    }();
+
+    if (debugging) {
+        std::cout << "fu = " << static_cast<unsigned>(fu) << ", fan = " << static_cast<unsigned>(fan) << ")\n";
+    }
+
+    if (map[index].first == UINT_FAST8_MAX) {
+        assert((map[index].second == UINT_FAST8_MAX));
+        map[index].first = fu;
+        map[index].second = fan;
+    }
     else {
-        for (std::uint_fast8_t i = 0u, hupai_index = 0u;; ++i, ++hupai_index) {
-            while (hupai_index < 34u && hand[hupai_index] == 0u) {
-                ++hupai_index;
-            }
-            if (hupai_index == 34u) {
-                break;
-            }
-
-            if (debugging) {
-                std::cout << "hupai index = " << static_cast<unsigned>(i) << std::endl;
-            }
-
-            python::long_ hupai(hupai_index * 4u);
-            if (debugging) {
-                //std::cout << "hupai = " << python::extract<long>(hupai) << '\n';
-            }
-
-            args = python::tuple();
-            kwargs = python::dict();
-            kwargs["is_tsumo"] = true;
-            kwargs["options"] = optional_rules;
-            python::object tsumo_config = m_hand_config.attr("HandConfig")(*args, **kwargs);
-
-            args = python::make_tuple(tiles134, hupai);
-            kwargs = python::dict();
-            kwargs["melds"] = melds;
-            kwargs["config"] = tsumo_config;
-            python::object hand_response = hand_calculator.attr("estimate_hand_value")(*args, **kwargs);
-            python::object zimo_fu_ = hand_response.attr("fu");
-            python::object zimo_fan_ = hand_response.attr("han");
-            if (zimo_fu_.is_none() || zimo_fan_.is_none()) {
-                dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
-                python::object error_ = hand_response.attr("error");
-                std::string error = python::extract<std::string>(error_);
-                throw std::logic_error(error);
-            }
-            std::uint_fast8_t const zimo_fu = python::extract<long>(zimo_fu_);
-            std::uint_fast8_t const zimo_fan = python::extract<long>(zimo_fan_);
-            if (debugging) {
-                std::cout << "zimo: (" << static_cast<unsigned>(zimo_fu) << ", " << static_cast<unsigned>(zimo_fan) << ")\n";
-            }
-
-            args = python::tuple();
-            kwargs = python::dict();
-            kwargs["options"] = optional_rules;
-            python::object rong_config = m_hand_config.attr("HandConfig")(*args, **kwargs);
-
-            args = python::make_tuple(tiles134, hupai);
-            kwargs = python::dict();
-            kwargs["melds"] = melds;
-            kwargs["config"] = rong_config;
-            hand_response = hand_calculator.attr("estimate_hand_value")(*args, **kwargs);
-            python::object rong_fu_ = hand_response.attr("fu");
-            python::object rong_fan_ = hand_response.attr("han");
-            if (rong_fu_.is_none() || rong_fan_.is_none()) {
-                dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
-                python::object error_ = hand_response.attr("error");
-                std::string error = python::extract<std::string>(error_);
-                throw std::logic_error(error);
-            }
-            std::uint_fast8_t const rong_fu = python::extract<long>(rong_fu_);
-            std::uint_fast8_t const rong_fan = python::extract<long>(rong_fan_);
-            if (debugging) {
-                std::cout << "rong: (" << static_cast<unsigned>(rong_fu) << ", "
-                          << static_cast<unsigned>(rong_fan) << ")\n";
-            }
-
-            std::uint_fast64_t const map_index = [&]() -> std::uint_fast64_t{
-                std::uint_fast64_t map_index = index;
-                map_index = map_index * 13u + i;
-                map_index *= 2u;
-                return map_index;
-            }();
-            if (map_index >= Tsumonya::Normal::Base::e * 13u * 2u) {
-                dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
-                std::ostringstream oss;
-                oss << index << " * " << 13u << " + " << static_cast<unsigned>(i)
-                    << " = " << map_index << ": An out-of-bound index.";
-                throw std::logic_error(oss.str());
-            }
-            if (map[map_index] == 0u && map[map_index + 1u] == 0u) {
-                map[map_index] = encodeFuFan(zimo_fu, zimo_fan);
-                map[map_index + 1u] = encodeFuFan(rong_fu, rong_fan);
-            }
-            else {
-                if (encodeFuFan(zimo_fu, zimo_fan) != map[map_index]) {
-                    dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
-                    throw std::logic_error("Indices are in conflict.");
-                }
-                if (encodeFuFan(rong_fu, rong_fan) != map[map_index + 1u]) {
-                    dumpEntry(hand, chi_list, peng_list, angang_list, minggang_list, std::cerr);
-                    throw std::logic_error("Indices are in conflict.");
-                }
-            }
+        assert((map[index].second != UINT_FAST8_MAX));
+        if (fu != map[index].first || fan != map[index].second) {
+            dumpEntry(
+                hand, peng_list, chi_list, angang_list, minggang_list, winning_tile, rong,
+                std::cerr);
+            std::ostringstream oss;
+            oss << index << ": Indices are in conflict.";
+            throw std::logic_error(oss.str());
         }
     }
     if (debugging) {
@@ -475,7 +296,7 @@ void createEntry(
         std::cout << count << " (";
         boost::timer::nanosecond_type wall_clock_ = timer.elapsed().wall;
         double wall_clock = static_cast<double>(wall_clock_) / 1000000000;
-        double eta = (wall_clock / count) * (Tsumonya::Normal::Base::e + Tsumonya::Normal::WindHead::e);
+        double eta = (wall_clock / count) * upper_bound;
         std::int_least64_t const wall_clock_in_days = wall_clock / (60.0 * 60.0 * 24.0);
         wall_clock -= wall_clock_in_days * 60 * 60 * 24;
         std::int_least64_t const wall_clock_in_hours = wall_clock / (60.0 * 60.0);
@@ -505,21 +326,25 @@ void createEntry(
 
 void enumerateNormalHule(
     std::uint_fast8_t const i, std::uint_fast8_t const m, std::uint_fast8_t const h,
-    std::uint_fast8_t const x, std::uint_fast8_t const y, Hand &hand, ChiList &chi_list,
-    PengList &peng_list, GangList &angang_list, GangList &minggang_list,
-    Map &map, std::uint_fast32_t &count, cpu_timer const &timer)
+    std::uint_fast8_t const w, std::uint_fast8_t const x, std::uint_fast8_t const y, Hand &hand,
+    PengList &peng_list, ChiList &chi_list, GangList &angang_list, GangList &minggang_list,
+    std::uint_fast8_t winning_tile, bool rong, Map &map, std::uint_fast32_t &count,
+    cpu_timer const &timer)
 {
     assert((i <= 34u));
     assert((m <= 4u));
     assert((h <= 1u));
+    assert((w <= 2u));
+    assert((x <= 4u));
+    assert((y <= 4u));
     for (std::uint_fast8_t const x : hand) {
         assert((x <= 4u));
     }
-    for (std::uint_fast8_t const c : chi_list) {
-        assert((c <= 4u));
-    }
     for (std::uint_fast8_t const p : peng_list) {
         assert((p <= 1u));
+    }
+    for (std::uint_fast8_t const c : chi_list) {
+        assert((c <= 4u));
     }
     for (std::uint_fast8_t const ag : angang_list) {
         assert((ag <= 1u));
@@ -529,11 +354,11 @@ void enumerateNormalHule(
     }
 
     if (i == 34u) {
-        assert((x == 0u));
-        assert((y == 0u));
-        if (m == 4u && h == 1u) {
+        if (m == 4u && h == 1u && w >= 1u && x == 0u && y == 0u) {
+            assert((winning_tile < 34u));
             createEntry(
-                hand, chi_list, peng_list, angang_list, minggang_list, map, count, timer);
+                hand, peng_list, chi_list, angang_list, minggang_list, winning_tile, rong, map,
+                count, timer);
         }
         return;
     }
@@ -544,47 +369,95 @@ void enumerateNormalHule(
     bool const shunzi_prohibited = color <= 2u && number >= 7u || color == 3u;
 
     for (std::uint_fast8_t s = 0u; s < stable.size(); ++s) {
+        std::uint_fast8_t const n = 3u * stable[s][0u] + stable[s][1u] + 2u * stable[s][6u];
+
         if (m + mtable[s] > 4u) {
+            // The number of members (menzi, 面子) must not exceed 4.
             continue;
         }
-        if (h + stable[s][0u] > 1u) {
+        if (h + stable[s][6u] > 1u) {
+            // The number of heads (雀頭) must not exceed 1.
+            continue;
+        }
+        if (w >= 1u && stable[s][7u] >= 1u) {
+            // The number of winning tiles must not exceed 1.
+            continue;
+        }
+        if (stable[s][7u] >= 1u && hand[i] + n == 0u) {
+            // If the winning tile is `i`, then tile `i` must exist in the hand.
             continue;
         }
         if (shunzi_prohibited && xytable[s] > 0u) {
+            // Three-in-a-row (shunzi, 順子) starting with 8 or 9 must not exist. The same applies to
+            // one of honors (zipai, 字牌).
             continue;
         }
-        if (ntable[s] + x > 4u) {
+        if (hand[i] + n > 4u) {
+            // The number of tile `i` must not exceed 4.
             continue;
         }
-        if (xytable[s] + y > 4u) {
+        if (!shunzi_prohibited && hand[i + 1u] + stable[s][1u] > 4u) {
+            // The number of tile `i + 1` in the hand must not exceed 4.
+            continue;
+        }
+        if (!shunzi_prohibited && hand[i + 2u] + stable[s][1u] > 4u) {
+            // The number of tile `i + 2` in the hand must not exceed 4.
+            continue;
+        }
+        if (x + ntable[s] > 4u) {
+            // The number of tile `i + 1` must not exceed 4.
+            continue;
+        }
+        if (y + xytable[s] > 4u) {
+            // The number of tile `i + 2` must not exceed 4.
             continue;
         }
 
-        hand[i] += 2u * stable[s][0u] + 3u * stable[s][1u] + stable[s][2u];
+        hand[i] += n;
         if (!shunzi_prohibited) {
-            hand[i + 1u] += stable[s][2u];
-            hand[i + 2u] += stable[s][2u];
+            hand[i + 1u] += stable[s][1u];
+            hand[i + 2u] += stable[s][1u];
+        }
+        peng_list[i] += stable[s][2u];
+        if (!shunzi_prohibited) {
             assert((cindex < 21u));
             chi_list[cindex] += stable[s][3u];
         }
-        peng_list[i] += stable[s][4u];
-        angang_list[i] += stable[s][5u];
-        minggang_list[i] += stable[s][6u];
+        angang_list[i] += stable[s][4u];
+        minggang_list[i] += stable[s][5u];
+        if (stable[s][7u] == 1u) {
+            assert((winning_tile == UINT_FAST8_MAX));
+            assert((!rong));
+            winning_tile = i;
+        }
+        else if (stable[s][7u] == 2u) {
+            assert((winning_tile == UINT_FAST8_MAX));
+            assert((!rong));
+            winning_tile = i;
+            rong = true;
+        }
 
         enumerateNormalHule(
-            i + 1u, m + mtable[s], h + stable[s][0u], xytable[s] + y, xytable[s],
-            hand, chi_list, peng_list, angang_list, minggang_list, map, count, timer);
+            i + 1u, m + mtable[s], h + stable[s][6u], w + stable[s][7u], y + xytable[s],
+            xytable[s], hand, peng_list, chi_list, angang_list, minggang_list, winning_tile, rong,
+            map, count, timer);
 
-        angang_list[i] -= stable[s][5u];
-        minggang_list[i] -= stable[s][6u];
-        peng_list[i] -= stable[s][4u];
+        if (stable[s][7u] >= 1u) {
+            rong = false;
+            winning_tile = UINT_FAST8_MAX;
+        }
+        minggang_list[i] -= stable[s][5u];
+        angang_list[i] -= stable[s][4u];
         if (!shunzi_prohibited) {
             assert((cindex < 21u));
             chi_list[cindex] -= stable[s][3u];
-            hand[i + 2u] -= stable[s][2u];
-            hand[i + 1u] -= stable[s][2u];
         }
-        hand[i] -= 2u * stable[s][0u] + 3u * stable[s][1u] + stable[s][2u];
+        peng_list[i] -= stable[s][2u];
+        if (!shunzi_prohibited) {
+            hand[i + 2u] -= stable[s][1u];
+            hand[i + 1u] -= stable[s][1u];
+        }
+        hand[i] -= n;
     }
 }
 
@@ -600,15 +473,15 @@ int main()
         0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
         0u, 0u, 0u, 0u, 0u, 0u, 0u
     };
-    ChiList chi_list = {
-        0u, 0u, 0u, 0u, 0u, 0u, 0u,
-        0u, 0u, 0u, 0u, 0u, 0u, 0u,
-        0u, 0u, 0u, 0u, 0u, 0u, 0u
-    };
     PengList peng_list = {
         0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
         0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
         0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+        0u, 0u, 0u, 0u, 0u, 0u, 0u
+    };
+    ChiList chi_list = {
+        0u, 0u, 0u, 0u, 0u, 0u, 0u,
+        0u, 0u, 0u, 0u, 0u, 0u, 0u,
         0u, 0u, 0u, 0u, 0u, 0u, 0u
     };
     GangList angang_list = {
@@ -624,22 +497,18 @@ int main()
         0u, 0u, 0u, 0u, 0u, 0u, 0u
     };
 
-    std::uint_fast64_t const map_size
-        = static_cast<std::uint_fast64_t>(Tsumonya::Normal::Base::e) * 13u * 2u
-        + static_cast<std::uint_fast64_t>(Tsumonya::Normal::WindHead::e) * 3u * 13u * 2u;
-    std::cout << map_size << std::endl;
-    Map map(map_size, 0u);
-    std::uint_fast32_t count = 0u;
+    Map map(upper_bound, Map::value_type(UINT_FAST8_MAX, UINT_FAST8_MAX));
+    std::uint_fast64_t count = 0u;
     cpu_timer timer;
 
     enumerateNormalHule(
-        0u, 0u, 0u, 0u, 0u, hand, chi_list, peng_list, angang_list, minggang_list,
-        map, count, timer);
+        0u, 0u, 0u, 0u, 0u, 0u, hand, peng_list, chi_list, angang_list, minggang_list,
+        UINT_FAST8_MAX, false, map, count, timer);
 
     {
         std::ofstream ofs("src/normal/map.bin", std::ios_base::out | std::ios_base::binary);
-        for (std::uint_fast8_t const encode : map) {
-            ofs << encode;
+        for (auto const [fu, fan] : map) {
+            ofs << fu << fan;
         }
     }
 

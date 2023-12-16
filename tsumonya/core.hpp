@@ -10,130 +10,231 @@
 
 namespace Tsumonya{
 
-using Table = std::array<std::array<std::array<std::array<std::array<std::array<std::uint_fast32_t, 26u>, 5u>, 5u>, 2u>, 5u>, 34u>;
+// T(i, m, h, w, x, y, a, b, s)
+using Table = std::array<
+    std::array<
+        std::array<
+            std::array<
+                std::array<
+                    std::array<
+                        std::array<
+                            std::array<
+                                std::array<
+                                    std::uint_fast64_t, 70u
+                                >, 2u
+                            >, 2u
+                        >, 5u
+                    >, 5u
+                >, 3u
+            >, 2u
+        >, 5u
+    >, 34u
+>;
 
-inline constexpr std::array<std::array<std::uint_fast8_t, 7u>, 26u> stable = {{
-    {{ 1u, 0u, 2u, 0u, 0u, 0u, 0u }},
-    {{ 1u, 0u, 1u, 1u, 0u, 0u, 0u }},
-    {{ 1u, 0u, 1u, 0u, 0u, 0u, 0u }},
-    {{ 1u, 0u, 0u, 2u, 0u, 0u, 0u }},
-    {{ 1u, 0u, 0u, 1u, 0u, 0u, 0u }},
-    {{ 1u, 0u, 0u, 0u, 0u, 0u, 0u }},
-    {{ 0u, 1u, 1u, 0u, 0u, 0u, 0u }},
-    {{ 0u, 1u, 0u, 1u, 0u, 0u, 0u }},
-    {{ 0u, 1u, 0u, 0u, 0u, 0u, 0u }},
-    {{ 0u, 0u, 2u, 2u, 0u, 0u, 0u }},
-    {{ 0u, 0u, 2u, 1u, 0u, 0u, 0u }},
-    {{ 0u, 0u, 2u, 0u, 0u, 0u, 0u }},
-    {{ 0u, 0u, 1u, 3u, 0u, 0u, 0u }},
-    {{ 0u, 0u, 1u, 2u, 0u, 0u, 0u }},
-    {{ 0u, 0u, 1u, 1u, 0u, 0u, 0u }},
-    {{ 0u, 0u, 1u, 0u, 1u, 0u, 0u }},
-    {{ 0u, 0u, 1u, 0u, 0u, 0u, 0u }},
-    {{ 0u, 0u, 0u, 4u, 0u, 0u, 0u }},
-    {{ 0u, 0u, 0u, 3u, 0u, 0u, 0u }},
-    {{ 0u, 0u, 0u, 2u, 0u, 0u, 0u }},
-    {{ 0u, 0u, 0u, 1u, 1u, 0u, 0u }},
-    {{ 0u, 0u, 0u, 1u, 0u, 0u, 0u }},
-    {{ 0u, 0u, 0u, 0u, 1u, 0u, 0u }},
-    {{ 0u, 0u, 0u, 0u, 0u, 1u, 0u }},
-    {{ 0u, 0u, 0u, 0u, 0u, 0u, 1u }},
-    {{ 0u, 0u, 0u, 0u, 0u, 0u, 0u }}
+inline constexpr std::array<std::array<std::uint_fast8_t, 8u>, 70u> stable = {{
+    // 0th element: The number of non-open triplets (either concealed ones or one including the winning tile) composed of tile `i`.
+    // 1st element: The number of non-open three-in-a-row (either concealed ones or one including the winning tile) starting with tile `i`.
+    // 2nd element: The number of open triplets composed of a kind of tiles.
+    // 3rd element: The number of open three-in-a-row starting with tile `i`.
+    // 4th element: The number of concealed quadraples composed of tile `i`.
+    // 5th element: The number of open quadraples composed of tile `i`.
+    // 6th element: The number of heads composed of tile `i`.
+    // 7th element:
+    //   0: Tile `i` is not the winning one.
+    //   1: Tile `i` is the winning one by self-draw.
+    //   2: Tile `i` is the winning one by deal-in.
+
+    {{ 1u, 1u, 0u, 0u, 0u, 0u, 0u, 0u }}, // s =  0
+    {{ 1u, 1u, 0u, 0u, 0u, 0u, 0u, 1u }}, // s =  1
+    {{ 1u, 1u, 0u, 0u, 0u, 0u, 0u, 2u }}, // s =  2
+
+    {{ 1u, 0u, 0u, 1u, 0u, 0u, 0u, 0u }}, // s =  3
+    {{ 1u, 0u, 0u, 1u, 0u, 0u, 0u, 1u }}, // s =  4
+    {{ 1u, 0u, 0u, 1u, 0u, 0u, 0u, 2u }}, // s =  5
+
+    {{ 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u }}, // s =  6
+    {{ 1u, 0u, 0u, 0u, 0u, 0u, 0u, 1u }}, // s =  7
+    {{ 1u, 0u, 0u, 0u, 0u, 0u, 0u, 2u }}, // s =  8
+
+    {{ 0u, 2u, 0u, 2u, 0u, 0u, 0u, 0u }}, // s =  9
+    {{ 0u, 2u, 0u, 2u, 0u, 0u, 0u, 1u }}, // s = 10
+    {{ 0u, 2u, 0u, 2u, 0u, 0u, 0u, 2u }}, // s = 11
+
+    {{ 0u, 2u, 0u, 1u, 0u, 0u, 0u, 0u }}, // s = 12
+    {{ 0u, 2u, 0u, 1u, 0u, 0u, 0u, 1u }}, // s = 13
+    {{ 0u, 2u, 0u, 1u, 0u, 0u, 0u, 2u }}, // s = 14
+
+    {{ 0u, 2u, 0u, 0u, 0u, 0u, 1u, 0u }}, // s = 15
+    {{ 0u, 2u, 0u, 0u, 0u, 0u, 1u, 1u }}, // s = 16
+    {{ 0u, 2u, 0u, 0u, 0u, 0u, 1u, 2u }}, // s = 17
+
+    {{ 0u, 2u, 0u, 0u, 0u, 0u, 0u, 0u }}, // s = 18
+    {{ 0u, 2u, 0u, 0u, 0u, 0u, 0u, 1u }}, // s = 19
+    {{ 0u, 2u, 0u, 0u, 0u, 0u, 0u, 2u }}, // s = 20
+
+    {{ 0u, 1u, 1u, 0u, 0u, 0u, 0u, 0u }}, // s = 21
+    {{ 0u, 1u, 1u, 0u, 0u, 0u, 0u, 1u }}, // s = 22
+    {{ 0u, 1u, 1u, 0u, 0u, 0u, 0u, 2u }}, // s = 23
+
+    {{ 0u, 1u, 0u, 3u, 0u, 0u, 0u, 0u }}, // s = 24
+    {{ 0u, 1u, 0u, 3u, 0u, 0u, 0u, 1u }}, // s = 25
+    {{ 0u, 1u, 0u, 3u, 0u, 0u, 0u, 2u }}, // s = 26
+
+    {{ 0u, 1u, 0u, 2u, 0u, 0u, 0u, 0u }}, // s = 27
+    {{ 0u, 1u, 0u, 2u, 0u, 0u, 0u, 1u }}, // s = 28
+    {{ 0u, 1u, 0u, 2u, 0u, 0u, 0u, 2u }}, // s = 29
+
+    {{ 0u, 1u, 0u, 1u, 0u, 0u, 1u, 0u }}, // s = 30
+    {{ 0u, 1u, 0u, 1u, 0u, 0u, 1u, 1u }}, // s = 31
+    {{ 0u, 1u, 0u, 1u, 0u, 0u, 1u, 2u }}, // s = 32
+
+    {{ 0u, 1u, 0u, 1u, 0u, 0u, 0u, 0u }}, // s = 33
+    {{ 0u, 1u, 0u, 1u, 0u, 0u, 0u, 1u }}, // s = 34
+    {{ 0u, 1u, 0u, 1u, 0u, 0u, 0u, 2u }}, // s = 35
+
+    {{ 0u, 1u, 0u, 0u, 0u, 0u, 1u, 0u }}, // s = 36
+    {{ 0u, 1u, 0u, 0u, 0u, 0u, 1u, 1u }}, // s = 37
+    {{ 0u, 1u, 0u, 0u, 0u, 0u, 1u, 2u }}, // s = 38
+
+    {{ 0u, 1u, 0u, 0u, 0u, 0u, 0u, 0u }}, // s = 39
+    {{ 0u, 1u, 0u, 0u, 0u, 0u, 0u, 1u }}, // s = 40
+    {{ 0u, 1u, 0u, 0u, 0u, 0u, 0u, 2u }}, // s = 41
+
+    {{ 0u, 0u, 1u, 1u, 0u, 0u, 0u, 0u }}, // s = 42
+
+    {{ 0u, 0u, 1u, 0u, 0u, 0u, 0u, 0u }}, // s = 43
+    {{ 0u, 0u, 1u, 0u, 0u, 0u, 0u, 1u }}, // s = 44
+    {{ 0u, 0u, 1u, 0u, 0u, 0u, 0u, 2u }}, // s = 45
+
+    {{ 0u, 0u, 0u, 4u, 0u, 0u, 0u, 0u }}, // s = 46
+
+    {{ 0u, 0u, 0u, 3u, 0u, 0u, 0u, 0u }}, // s = 47
+    {{ 0u, 0u, 0u, 3u, 0u, 0u, 0u, 1u }}, // s = 48
+    {{ 0u, 0u, 0u, 3u, 0u, 0u, 0u, 2u }}, // s = 49
+
+    {{ 0u, 0u, 0u, 2u, 0u, 0u, 1u, 0u }}, // s = 50
+    {{ 0u, 0u, 0u, 2u, 0u, 0u, 1u, 1u }}, // s = 51
+    {{ 0u, 0u, 0u, 2u, 0u, 0u, 1u, 2u }}, // s = 52
+
+    {{ 0u, 0u, 0u, 2u, 0u, 0u, 0u, 0u }}, // s = 53
+    {{ 0u, 0u, 0u, 2u, 0u, 0u, 0u, 1u }}, // s = 54
+    {{ 0u, 0u, 0u, 2u, 0u, 0u, 0u, 2u }}, // s = 55
+
+    {{ 0u, 0u, 0u, 1u, 0u, 0u, 1u, 0u }}, // s = 56
+    {{ 0u, 0u, 0u, 1u, 0u, 0u, 1u, 1u }}, // s = 57
+    {{ 0u, 0u, 0u, 1u, 0u, 0u, 1u, 2u }}, // s = 58
+
+    {{ 0u, 0u, 0u, 1u, 0u, 0u, 0u, 0u }}, // s = 59
+    {{ 0u, 0u, 0u, 1u, 0u, 0u, 0u, 1u }}, // s = 60
+    {{ 0u, 0u, 0u, 1u, 0u, 0u, 0u, 2u }}, // s = 61
+
+    {{ 0u, 0u, 0u, 0u, 1u, 0u, 0u, 0u }}, // s = 62
+
+    {{ 0u, 0u, 0u, 0u, 0u, 1u, 0u, 0u }}, // s = 63
+
+    {{ 0u, 0u, 0u, 0u, 0u, 0u, 1u, 0u }}, // s = 64
+    {{ 0u, 0u, 0u, 0u, 0u, 0u, 1u, 1u }}, // s = 65
+    {{ 0u, 0u, 0u, 0u, 0u, 0u, 1u, 2u }}, // s = 66
+
+    {{ 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u }}, // s = 67
+    {{ 0u, 0u, 0u, 0u, 0u, 0u, 0u, 1u }}, // s = 68
+    {{ 0u, 0u, 0u, 0u, 0u, 0u, 0u, 2u }}, // s = 69
 }};
-inline constexpr std::array<std::uint_fast8_t, 26u> mtable  = {
-    2u, 2u, 1u, 2u, 1u, 0u, 2u, 2u, 1u, 4u, 3u, 2u, 4u, 3u, 2u, 2u, 1u, 4u, 3u, 2u, 2u, 1u, 1u, 1u, 1u, 0u
+
+// The table of the numbers of members for each `s`.
+inline constexpr std::array<std::uint_fast8_t, 70u> mtable = {
+    2u, 2u, 2u, // s =  0,  1,  2
+    2u, 2u, 2u, // s =  3,  4,  5
+    1u, 1u, 1u, // s =  6,  7,  8
+    4u, 4u, 4u, // s =  9, 10, 11
+    3u, 3u, 3u, // s = 12, 13, 14
+    2u, 2u, 2u, // s = 15, 16, 17
+    2u, 2u, 2u, // s = 18, 19, 20
+    2u, 2u, 2u, // s = 21, 22, 23
+    4u, 4u, 4u, // s = 24, 25, 26
+    3u, 3u, 3u, // s = 27, 28, 29
+    2u, 2u, 2u, // s = 30, 31, 32
+    2u, 2u, 2u, // s = 33, 34, 35
+    1u, 1u, 1u, // s = 36, 37, 38
+    1u, 1u, 1u, // s = 39, 40, 41
+    2u,         // s = 42
+    1u, 1u, 1u, // s = 43, 44, 45
+    4u,         // s = 46
+    3u, 3u, 3u, // s = 47, 48, 49
+    2u, 2u, 2u, // s = 50, 51, 52
+    2u, 2u, 2u, // s = 53, 54, 55
+    1u, 1u, 1u, // s = 56, 57, 58
+    1u, 1u, 1u, // s = 59, 60, 61
+    1u,         // s = 62
+    1u,         // s = 63
+    0u, 0u, 0u, // s = 64, 65, 66
+    0u, 0u, 0u, // s = 67, 68, 69
 };
-inline constexpr std::array<std::uint_fast8_t, 26u> ntable  = {
-    4u, 4u, 3u, 4u, 3u, 2u, 4u, 4u, 3u, 4u, 3u, 2u, 4u, 3u, 2u, 4u, 1u, 4u, 3u, 2u, 4u, 1u, 3u, 4u, 4u, 0u
+
+// The table of the numbers of tile `i` for each `s`.
+inline constexpr std::array<std::uint_fast8_t, 70u> ntable = {
+    4u, 4u, 4u, // s =  0,  1,  2
+    4u, 4u, 4u, // s =  3,  4,  5
+    3u, 3u, 3u, // s =  6,  7,  8
+    4u, 4u, 4u, // s =  9, 10, 11
+    3u, 3u, 3u, // s = 12, 13, 14
+    4u, 4u, 4u, // s = 15, 16, 17
+    2u, 2u, 2u, // s = 18, 19, 20
+    4u, 4u, 4u, // s = 21, 22, 23
+    4u, 4u, 4u, // s = 24, 25, 26
+    3u, 3u, 3u, // s = 27, 28, 29
+    4u, 4u, 4u, // s = 30, 31, 32
+    2u, 2u, 2u, // s = 33, 34, 35
+    3u, 3u, 3u, // s = 36, 37, 38
+    1u, 1u, 1u, // s = 39, 40, 41
+    4u,         // s = 42
+    3u, 3u, 3u, // s = 43, 44, 45
+    4u,         // s = 46
+    3u, 3u, 3u, // s = 47, 48, 49
+    4u, 4u, 4u, // s = 50, 51, 52
+    2u, 2u, 2u, // s = 53, 54, 55
+    3u, 3u, 3u, // s = 56, 57, 58
+    1u, 1u, 1u, // s = 59, 60, 61
+    4u,         // s = 62
+    4u,         // s = 63
+    2u, 2u, 2u, // s = 64, 65, 66
+    0u, 0u, 0u, // s = 67, 68, 69
 };
-inline constexpr std::array<std::uint_fast8_t, 26u> xytable = {
-    2u, 2u, 1u, 2u, 1u, 0u, 1u, 1u, 0u, 4u, 3u, 2u, 4u, 3u, 2u, 1u, 1u, 4u, 3u, 2u, 1u, 1u, 0u, 0u, 0u, 0u
+
+// The table of the numbers of three-in-a-row for each `s`.
+inline constexpr std::array<std::uint_fast8_t, 70u> xytable = {
+    1u, 1u, 1u, // s =  0,  1,  2
+    1u, 1u, 1u, // s =  3,  4,  5
+    0u, 0u, 0u, // s =  6,  7,  8
+    4u, 4u, 4u, // s =  9, 10, 11
+    3u, 3u, 3u, // s = 12, 13, 14
+    2u, 2u, 2u, // s = 15, 16, 17
+    2u, 2u, 2u, // s = 18, 19, 20
+    1u, 1u, 1u, // s = 21, 22, 23
+    4u, 4u, 4u, // s = 24, 25, 26
+    3u, 3u, 3u, // s = 27, 28, 29
+    2u, 2u, 2u, // s = 30, 31, 32
+    2u, 2u, 2u, // s = 33, 34, 35
+    1u, 1u, 1u, // s = 36, 37, 38
+    1u, 1u, 1u, // s = 39, 40, 41
+    1u,         // s = 42
+    0u, 0u, 0u, // s = 43, 44, 45
+    4u,         // s = 46
+    3u, 3u, 3u, // s = 47, 48, 49
+    2u, 2u, 2u, // s = 50, 51, 52
+    2u, 2u, 2u, // s = 53, 54, 55
+    1u, 1u, 1u, // s = 56, 57, 58
+    1u, 1u, 1u, // s = 59, 60, 61
+    0u,         // s = 62
+    0u,         // s = 63
+    0u, 0u, 0u, // s = 64, 65, 66
+    0u, 0u, 0u, // s = 67, 68, 69
 };
 
 using Hand = std::array<std::uint_fast8_t, 34u>;
-using ChiList = std::array<std::uint_fast8_t, 21u>;
 using PengList = std::array<std::uint_fast8_t, 34u>;
+using ChiList = std::array<std::uint_fast8_t, 21u>;
 using GangList = std::array<std::uint_fast8_t, 34u>;
-
-inline constexpr std::array<std::pair<std::uint_fast8_t, std::uint_fast8_t>, 51u> fu_fan_table = {
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(   0u,  0u ), //  0
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  30u,  0u ), //  1
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  40u,  0u ), //  2
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  50u,  0u ), //  3
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  60u,  0u ), //  4
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  70u,  0u ), //  5
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  30u,  1u ), //  6
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  40u,  1u ), //  7
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  50u,  1u ), //  8
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  60u,  1u ), //  9
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  70u,  1u ), // 10
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  80u,  1u ), // 11
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  90u,  1u ), // 12
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( 100u,  1u ), // 13
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( 110u,  1u ), // 14
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  20u,  2u ), // 15
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  25u,  2u ), // 16
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  30u,  2u ), // 17
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  40u,  2u ), // 18
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  50u,  2u ), // 19
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  60u,  2u ), // 20
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  70u,  2u ), // 21
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  80u,  2u ), // 22
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  90u,  2u ), // 23
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( 100u,  2u ), // 24
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( 110u,  2u ), // 25
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  20u,  3u ), // 26
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  25u,  3u ), // 27
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  30u,  3u ), // 28
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  40u,  3u ), // 29
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  50u,  3u ), // 30
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  60u,  3u ), // 31
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  20u,  4u ), // 32
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  25u,  4u ), // 33
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>(  30u,  4u ), // 34
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( UINT_FAST8_MAX,  3u ), // 35
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( UINT_FAST8_MAX,  4u ), // 36
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( UINT_FAST8_MAX,  5u ), // 37
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( UINT_FAST8_MAX,  6u ), // 38
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( UINT_FAST8_MAX,  7u ), // 39
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( UINT_FAST8_MAX,  8u ), // 40
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( UINT_FAST8_MAX,  9u ), // 41
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( UINT_FAST8_MAX, 10u ), // 42
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( UINT_FAST8_MAX, 11u ), // 43
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( UINT_FAST8_MAX, 12u ), // 44
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( UINT_FAST8_MAX, 13u ), // 45
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( UINT_FAST8_MAX, 26u ), // 46
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( UINT_FAST8_MAX, 39u ), // 47
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( UINT_FAST8_MAX, 52u ), // 48
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( UINT_FAST8_MAX, 65u ), // 49
-    std::pair<std::uint_fast8_t, std::uint_fast8_t>( UINT_FAST8_MAX, 78u ), // 50
-};
-
-inline std::uint_fast8_t encodeFuFan(std::uint_fast8_t const fu, std::uint_fast8_t const fan)
-{
-    if (fu >= 70u && fan == 3u) {
-        return 35u;
-    }
-    if (fu >= 40u && fan == 4u) {
-        return 36u;
-    }
-    if (fan <= 4u) {
-        for (std::uint_fast8_t i = 0u; i <= 34u; ++i) {
-            if (fu == fu_fan_table[i].first && fan == fu_fan_table[i].second) {
-                return i;
-            }
-        }
-        throw std::invalid_argument("An invalid argument.");
-    }
-
-    std::uint_fast8_t const fan_truncated = fan <= 13u ? fan : (fan / 13u) * 13u;
-    for (std::uint_fast8_t i = 30u; i < fu_fan_table.size(); ++i) {
-        if (fan_truncated == fu_fan_table[i].second) {
-            return i;
-        }
-    }
-    throw std::invalid_argument("An invalid argument.");
-}
 
 } // namespace Tsumonya
 

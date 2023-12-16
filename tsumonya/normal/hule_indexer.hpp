@@ -1,6 +1,6 @@
-#include <tsumonya/normal/wind_head/table.hpp>
-#include <tsumonya/normal/base/table.hpp>
+#include <tsumonya/normal/table.hpp>
 #include <tsumonya/core.hpp>
+#include <sstream>
 #include <array>
 #include <tuple>
 #include <stdexcept>
@@ -14,14 +14,26 @@ namespace Tsumonya::Normal{
 class HuleIndexer
 {
 private:
-    using StateSeq_ = std::array<std::tuple<std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t>, 34u>;
+    using StateSeq_ = std::array<
+        std::tuple<
+            std::uint_fast8_t, // m
+            std::uint_fast8_t, // h
+            std::uint_fast8_t, // w
+            std::uint_fast8_t, // x
+            std::uint_fast8_t, // y
+            std::uint_fast8_t, // a
+            std::uint_fast8_t, // b
+            std::uint_fast8_t  // s
+        >, 34u
+    >;
 
 private:
-    std::tuple<std::uint_fast8_t, std::uint_fast8_t> encodeShupai_(
-        std::uint_fast8_t const color, Hand const &hand, ChiList const &chi_list,
-        PengList const &peng_list, GangList const &angang_list, GangList const &minggang_list,
-        std::uint_fast8_t const head, std::uint_fast8_t m, std::uint_fast8_t h,
-        StateSeq_ &state_seq) const
+    std::tuple<std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t> encodeShupai_(
+        std::uint_fast8_t const color, Tsumonya::Hand const &hand,
+        Tsumonya::PengList const &peng_list, Tsumonya::ChiList const &chi_list,
+        Tsumonya::GangList const &angang_list, Tsumonya::GangList const &minggang_list,
+        std::uint_fast8_t const winning_tile, bool const rong, std::uint_fast8_t const head,
+        std::uint_fast8_t m, std::uint_fast8_t h, std::uint_fast8_t w, StateSeq_ &state_seq) const
     {
         std::uint_fast8_t x = 0u;
         std::uint_fast8_t y = 0u;
@@ -35,147 +47,170 @@ private:
 
             std::uint_fast8_t s = UINT_FAST8_MAX;
             for (std::uint_fast8_t ss = 0u; ss < stable.size(); ++ss) {
+                std::uint_fast8_t const n = 3u * stable[ss][0u] + stable[ss][1u] + 2u * stable[ss][6u];
+
                 if (m + mtable[ss] > 4u) {
+                    // The number of members (menzi, 面子) must not exceed 4.
                     continue;
                 }
-                if ((head == i) != (stable[ss][0u] == 1u)) {
+                if ((head == i) != (stable[ss][6u] == 1u)) {
+                    // Tile `i` is designated as the head (雀頭).
                     continue;
                 }
-                if (h + stable[ss][0u] > 1u) {
+                if (h + stable[ss][6u] > 1u) {
+                    // The number of heads (雀頭) must not exceed 1.
                     continue;
                 }
-                if (ntable[ss] + x > 4u) {
+                if ((winning_tile == i) != (stable[ss][7u] >= 1u)) {
+                    // Tile `i` is designated as the winning tile.
                     continue;
                 }
-                if (xytable[ss] + y > 4u) {
+                if (w >= 1u && stable[ss][7u] >= 1u) {
+                    // The number of winning tiles must not exceed 1.
+                    continue;
+                }
+                if (stable[ss][7u] >= 1u && hand[i] == 0u) {
+                    // If the winning tile is `i`, then tile `i` must exist in the hand.
+                    continue;
+                }
+                if (stable[ss][7u] >= 1u && rong != (stable[ss][7u] == 2u)) {
+                    // Winning by self-draw or deal-in must be consistent.
+                    continue;
+                }
+                if (a != n) {
+                    continue;
+                }
+                if (number < 8u && b < stable[ss][1u]) {
+                    continue;
+                }
+                if (number < 7u && hand[i + 2u] < stable[ss][1u]) {
+                    continue;
+                }
+                if (peng_list[i] != stable[ss][2u]) {
                     continue;
                 }
                 if (cindex == UINT_FAST8_MAX && xytable[ss] > 0u) {
                     continue;
                 }
-                if (a < 2u * stable[ss][0u] + 3u * stable[ss][1u] + stable[ss][2u]) {
+                if (cindex != UINT_FAST8_MAX && chi_list[cindex] != stable[ss][3u]) {
                     continue;
                 }
-                if (b < stable[ss][2u]) {
+                if (angang_list[i] != stable[ss][4u]) {
                     continue;
                 }
-                if (number <= 6u && hand[i + 2u] < stable[ss][2u]) {
-                    continue;
-                }
-                if (cindex != UINT_FAST8_MAX && stable[ss][3u] != chi_list[cindex]) {
-                    continue;
-                }
-                if (stable[ss][4u] != peng_list[i]) {
-                    continue;
-                }
-                if (stable[ss][5u] != angang_list[i]) {
-                    continue;
-                }
-                if (stable[ss][6u] != minggang_list[i]) {
+                if (minggang_list[i] != stable[ss][5u]) {
                     continue;
                 }
 
-                if (a > 2u * stable[ss][0u] + 3u * stable[ss][1u] + stable[ss][2u]) {
-                    return { UINT_FAST8_MAX, UINT_FAST8_MAX };
-                }
                 s = ss;
                 break;
             }
             if (s == UINT_FAST8_MAX) {
-                return { UINT_FAST8_MAX, UINT_FAST8_MAX };
+                return { UINT_FAST8_MAX, UINT_FAST8_MAX, UINT_FAST8_MAX };
             }
 
-            state_seq[i] = { m, h, s, x, y };
+            state_seq[i] = { m, h, w, x, y, hand[i] - a >= 1u ? 1u : 0u, hand[i + 1u] - b >= 1u ? 1u : 0u, s };
 
-            x = number <= 6u ? xytable[s] + y : y;
-            y = number <= 6u ? xytable[s] : 0u;
-            a = number <= 6u ? b - stable[s][2u] : b;
-            b = number <= 6u ? hand[i + 2u] - stable[s][2u] : 0u;
             m += mtable[s];
-            h += stable[s][0u];
+            h += stable[s][6u];
+            w += stable[s][7u];
+            x = number < 7u ? y + xytable[s] : y;
+            y = number < 7u ? xytable[s] : 0u;
+            a = b - stable[s][1u];
+            b = hand[i + 2u] - stable[s][1u];
         }
 
-        return { m, h };
+        return { m, h, w };
     }
 
-    std::uint_fast8_t encodeZipai_(
-        Hand const &hand, PengList const &peng_list, GangList const &angang_list,
-        GangList const &minggang_list, std::uint_fast8_t m, std::uint_fast8_t h,
-        StateSeq_ &state_seq) const
+    bool encodeZipai_(
+        Tsumonya::Hand const &hand, Tsumonya::PengList const &peng_list,
+        Tsumonya::GangList const &angang_list, Tsumonya::GangList const &minggang_list,
+        std::uint_fast8_t const winning_tile, bool const rong, std::uint_fast8_t m,
+        std::uint_fast8_t h, std::uint_fast8_t w, StateSeq_ &state_seq) const
     {
-        bool wind_head = false;
-
         for (std::uint_fast8_t i = 27u; i < 34u; ++i) {
-            bool const wind_pai = 27u <= i && i < 31u;
-
             std::uint_fast8_t s = UINT_FAST8_MAX;
             for (std::uint_fast8_t ss = 0u; ss < stable.size(); ++ss) {
                 if (m + mtable[ss] > 4u) {
+                    // The number of members (menzi, 面子) must not exceed 4.
                     continue;
                 }
-                if ((hand[i] == 2u) != (stable[ss][0u] == 1u)) {
+                if ((hand[i] == 2u) != (stable[ss][6u] == 1u)) {
+                    // The number of tile `i` is equal to 2, then it must be the head (雀頭).
                     continue;
                 }
-                if (h + stable[ss][0u] > 1u) {
+                if (h + stable[ss][6u] > 1u) {
+                    // The number of heads (雀頭) must not exceed 1.
+                    continue;
+                }
+                if ((winning_tile == i) != (stable[ss][7u] >= 1u)) {
+                    // Tile `i` is designated as the winning tile.
+                    continue;
+                }
+                if (w >= 1u && stable[ss][7u] >= 1u) {
+                    // The number of winning tiles must not exceed 1.
+                    continue;
+                }
+                if (stable[ss][7u] >= 1u && hand[i] == 0u) {
+                    // If the winning tile is `i`, then tile `i` must exist in the hand.
+                    continue;
+                }
+                if (stable[ss][7u] >= 1u && rong != (stable[ss][7] == 2u)) {
+                    // Winning by self-draw or deal-in must be consistent.
                     continue;
                 }
                 if (xytable[ss] > 0u) {
+                    // Three-in-a-row (shunzi, 順子) is not allowed for honors (zipai, 字牌).
                     continue;
                 }
-                if (hand[i] < 2u * stable[ss][0u] + 3u * stable[ss][1u]) {
+                if (hand[i] != 3u * stable[ss][0u] + 2u * stable[ss][6u]) {
                     continue;
                 }
-                if (stable[ss][4u] != peng_list[i]) {
+                if (peng_list[i] != stable[ss][2u]) {
                     continue;
                 }
-                if (stable[ss][5u] != angang_list[i]) {
+                if (angang_list[i] != stable[ss][4u]) {
                     continue;
                 }
-                if (stable[ss][6u] != minggang_list[i]) {
+                if (minggang_list[i] != stable[ss][5u]) {
                     continue;
-                }
-
-                if (hand[i] > 2u * stable[ss][0u] + 3u * stable[ss][1u]) {
-                    return 0u;
-                }
-
-                if (wind_pai && stable[ss][0u] == 1u) {
-                    wind_head = true;
                 }
 
                 s = ss;
                 break;
             }
             if (s == UINT_FAST8_MAX) {
-                return 0u;
+                return false;
             }
 
-            state_seq[i] = { m, h, s, 0u, 0u };
+            state_seq[i] = { m, h, w, 0u, 0u, 0u, 0u, s };
 
             m += mtable[s];
-            h += stable[s][0u];
+            h += stable[s][6u];
+            w += stable[s][7u];
         }
 
-        return wind_head ? 2u : 1u;
+        return m == 4u && h == 1u && w >= 1u;
     }
 
-    std::uint_fast32_t encodeStateSeq_(StateSeq_ const &state_seq, bool const wind_head) const
+    std::uint_fast64_t encodeStateSeq_(StateSeq_ const &state_seq) const
     {
-        Table const &table = wind_head ? Tsumonya::Normal::WindHead::table
-                                       : Tsumonya::Normal::Base::table;
-        std::uint_fast32_t code = 0u;
+        std::uint_fast64_t code = 0u;
         for (std::uint_fast8_t i = 0u; i < 34u; ++i) {
-            auto const [m, h, s, x, y] = state_seq[i];
-            code += table[i][m][h][x][y][s];
+            auto const [m, h, w, x, y, a, b, s] = state_seq[i];
+            code += Tsumonya::Normal::table[i][m][h][w][x][y][a][b][s];
         }
 
-        return code + (wind_head ? Tsumonya::Normal::Base::e : 0u);
+        return code;
     }
 
 public:
-    std::uint_fast32_t operator()(
-        Hand const &hand, ChiList const &chi_list, PengList const &peng_list,
-        GangList const &angang_list, GangList const &minggang_list) const
+    std::uint_fast64_t operator()(
+        Tsumonya::Hand const &hand, Tsumonya::PengList const &peng_list,
+        Tsumonya::ChiList const &chi_list, Tsumonya::GangList const &angang_list,
+        Tsumonya::GangList const &minggang_list, std::uint_fast8_t const winning_tile,
+        bool rong) const
     {
         {
             std::uint_fast16_t total = 0u;
@@ -203,21 +238,35 @@ public:
                 }();
 
                 if (hand[i] + c + 3u * peng_list[i] + 4u * angang_list[i] + 4u * minggang_list[i] > 4u) {
-                    throw std::invalid_argument("Invalid arguments.");
+                    std::ostringstream oss;
+                    oss << "Too many of tile `" << static_cast<unsigned>(i) << "`.";
+                    throw std::invalid_argument(oss.str());
                 }
 
                 total += hand[i] + c + 3u * (peng_list[i] + angang_list[i] + minggang_list[i]);
             }
             for (std::uint_fast8_t i = 27u; i < 34u; ++i) {
                 if (hand[i] + 3u * peng_list[i] + 4u * angang_list[i] + 4u * minggang_list[i] > 4u) {
-                    throw std::invalid_argument("Invalid arguments.");
+                    std::ostringstream oss;
+                    oss << "Too many of tile `" << static_cast<unsigned>(i) << "`.";
+                    throw std::invalid_argument(oss.str());
                 }
 
                 total += hand[i] + 3u * (peng_list[i] + angang_list[i] + minggang_list[i]);
             }
 
-            if (total != 14u) {
-                throw std::invalid_argument("Invalid arguments.");
+            if (total < 14u) {
+                throw std::invalid_argument("Too few of tiles.");
+            }
+            if (total > 14u) {
+                throw std::invalid_argument("Too many of tiles.");
+            }
+
+            if (winning_tile >= 34u) {
+                throw std::invalid_argument("An invalid winning tile.");
+            }
+            if (hand[winning_tile] == 0u) {
+                throw std::invalid_argument("The winning tile is not in the hand.");
             }
         }
 
@@ -230,55 +279,54 @@ public:
 
         std::uint_fast8_t m = 0u;
         std::uint_fast8_t h = 0u;
+        std::uint_fast8_t w = 0u;
         StateSeq_ state_seq;
 
         for (std::uint_fast8_t color = 0u; color < 3u; ++color) {
-            auto [m_, h_] = encodeShupai_(
-                color, hand, chi_list, peng_list, angang_list, minggang_list,
-                UINT_FAST8_MAX, m, h, state_seq);
+            auto [m_, h_, w_] = encodeShupai_(
+                color, hand, peng_list, chi_list, angang_list, minggang_list, winning_tile, rong,
+                UINT_FAST8_MAX, m, h, w, state_seq);
             if (m_ != UINT_FAST8_MAX) {
                 assert((h_ != UINT_FAST8_MAX));
+                assert((w_ != UINT_FAST8_MAX));
                 m = m_;
                 h = h_;
+                w = w_;
             }
             else {
                 assert((h_ == UINT_FAST8_MAX));
+                assert((w_ == UINT_FAST8_MAX));
                 for (std::uint_fast8_t j = (t[color] * 2u) % 3u; j < 9u; j += 3u) {
                     if (hand[color * 9u + j] < 2u) {
                         continue;
                     }
-                    std::tie(m_, h_) = encodeShupai_(
-                        color, hand, chi_list, peng_list, angang_list, minggang_list,
-                        color * 9u + j, m, h, state_seq);
+                    std::tie(m_, h_, w_) = encodeShupai_(
+                        color, hand, peng_list, chi_list, angang_list, minggang_list, winning_tile,
+                        rong, color * 9u + j, m, h, w, state_seq);
                     if (m_ != UINT_FAST8_MAX) {
                         assert((h_ != UINT_FAST8_MAX));
+                        assert((w_ != UINT_FAST8_MAX));
                         m = m_;
                         h = h_;
+                        w = w_;
                         assert((h == 1u));
                         break;
                     }
                 }
                 if (m_ == UINT_FAST8_MAX) {
                     assert((h_ == UINT_FAST8_MAX));
-                    return UINT_FAST32_MAX;
+                    assert((w_ == UINT_FAST8_MAX));
+                    return UINT_FAST64_MAX;
                 }
             }
         }
 
-        bool wind_head = false;
-        switch (encodeZipai_(hand, peng_list, angang_list, minggang_list, m, h, state_seq)) {
-            case 0u:
-                return UINT_FAST32_MAX;
-            case 1u:
-                break;
-            case 2u:
-                wind_head = true;
-                break;
-            default:
-                throw std::logic_error("A logic error.");
+        if (!encodeZipai_(hand, peng_list, angang_list, minggang_list, winning_tile, rong, m, h, w, state_seq)) {
+            return UINT_FAST64_MAX;
         }
 
-        return encodeStateSeq_(state_seq, wind_head);
+        std::uint_fast64_t const code = encodeStateSeq_(state_seq);
+        return code;
     }
 };
 
