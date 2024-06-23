@@ -1,2 +1,1 @@
-add_executable(calculator
-  calculator.cpp)
+add_subdirectory(standard)
