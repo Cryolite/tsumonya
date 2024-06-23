@@ -15,7 +15,7 @@ using ChiList_ = std::array<std::uint_fast8_t, 21u>;
 using PengGangList_ = std::array<std::uint_fast8_t, 34u>;
 using StateSeq_ = std::array<std::array<std::uint_fast8_t, 8u>, 34u>;
 
-std::tuple<std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t> encodeShupai_(
+inline std::tuple<std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t> encodeShupai_(
   std::uint_fast8_t const color,
   Hand_ const &hand,
   ChiList_ const &chi_list,
@@ -141,7 +141,7 @@ std::tuple<std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t> encodeShupai
   return { m, h, w };
 }
 
-bool encodeZipai_(
+inline bool encodeZipai_(
   Hand_ const &hand,
   PengGangList_ const &peng_list,
   PengGangList_ const &angang_list,
@@ -226,7 +226,7 @@ bool encodeZipai_(
   return m == 4u && h == 1u && w >= 1u;
 }
 
-std::uint_fast64_t encodeStateSeq_(StateSeq_ const &state_seq)
+inline std::uint_fast64_t encodeStateSeq_(StateSeq_ const &state_seq)
 {
   std::uint_fast64_t code = 0u;
   for (std::uint_fast8_t i = 0u; i < 34u; ++i) {
@@ -236,7 +236,7 @@ std::uint_fast64_t encodeStateSeq_(StateSeq_ const &state_seq)
   return code;
 }
 
-std::uint_fast64_t getHash_(
+inline std::uint_fast64_t getHash_(
   Hand_ const &hand,
   ChiList_ const &chi_list,
   PengGangList_ const &peng_list,
