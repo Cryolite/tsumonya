@@ -1,3 +1,7 @@
+// Copyright (c) 2023, 2024 Cryolite
+// SPDX-License-Identifier: MIT
+// This file is part of https://github.com/Cryolite/tsumonya
+
 #include <tsumonya/standard/table.hpp>
 #include <tsumonya/standard/core.hpp>
 #include <iterator>
