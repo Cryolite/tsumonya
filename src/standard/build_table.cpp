@@ -1,3 +1,7 @@
+// Copyright (c) 2023, 2024 Cryolite
+// SPDX-License-Identifier: MIT
+// This file is part of https://github.com/Cryolite/tsumonya
+
 #include <tsumonya/standard/core.hpp>
 #include <filesystem>
 #include <fstream>
@@ -156,37 +160,104 @@ std::uint_fast64_t countNumTails(
   return total;
 }
 
-void dumpTable(Memo const &memo, std::filesystem::path const &path)
+void dumpTables(
+  Memo const &memo,
+  std::filesystem::path const &subtable_path,
+  std::filesystem::path const &table_path)
 {
-  std::uint_fast64_t const upper_bound = [&]() -> std::uint_fast64_t {
-    std::uint_fast64_t const state = packState(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
-    Memo::const_iterator const iter = memo.find(state);
-    if (iter == memo.cend()) {
-      throw std::logic_error("A logic error.");
+  {
+    std::ofstream ofs(subtable_path);
+    if (!ofs) {
+      throw std::runtime_error("Failed to open the subtable file.");
     }
-    return iter->second;
-  }();
-
-  std::ofstream ofs(path);
-  if (!ofs) {
-    throw std::runtime_error("Failed to open the table file.");
+    ofs << "// Copyright (c) 2023, 2024 Cryolite\n";
+    ofs << "// SPDX-License-Identifier: MIT\n";
+    ofs << "// This file is part of https://github.com/Cryolite/tsumonya\n";
+    ofs << '\n';
+    ofs << "#if !defined(STANDARD_SUBTABLE_HPP_INCLUDE_GUARD)\n";
+    ofs << "#define STANDARD_SUBTABLE_HPP_INCLUDE_GUARD\n";
+    ofs << '\n';
+    ofs << "#include <tsumonya/standard/core.hpp>\n";
+    ofs << '\n';
+    ofs << '\n';
+    ofs << "namespace Tsumonya::Standard_{\n";
+    ofs << '\n';
+    ofs << "inline constexpr Subtable subtable = {{\n";
+    for (std::uint_fast8_t i = 0u; i < 34u; ++i) {
+      ofs << "  {{ // i = " << static_cast<unsigned>(i) << '\n';
+      for (std::uint_fast8_t m = 0u; m <= 4u; ++m) {
+        ofs << "    {{ // m = " << static_cast<unsigned>(m) << '\n';
+        for (std::uint_fast8_t h = 0u; h <= 1u; ++h) {
+          ofs << "      {{ // h = " << static_cast<unsigned>(h) << '\n';
+          for (std::uint_fast8_t w = 0u; w <= 2u; ++w) {
+            ofs << "        {{ // w = " << static_cast<unsigned>(w) << '\n';
+            for (std::uint_fast8_t x = 0u; x <= 4u; ++x) {
+              ofs << "          {{ // x = " << static_cast<unsigned>(x) << '\n';
+              for (std::uint_fast8_t y = 0u; y <= 4u; ++y) {
+                ofs << "            {{ // y = " << static_cast<unsigned>(y) << '\n';
+                for (std::uint_fast8_t a = 0u; a <= 1u; ++a) {
+                  ofs << "              {{";
+                  for (std::uint_fast8_t b = 0u; b <= 1u; ++b) {
+                    std::uint_fast64_t const state = packState(i, m, h, w, x, y, a, b);
+                    Memo::const_iterator const iter = memo.find(state);
+                    if (iter != memo.cend()) {
+                      ofs << iter->second << "u,";
+                    }
+                    else {
+                      ofs << "0u,";
+                    }
+                  }
+                  ofs << "}}, // a = " << static_cast<unsigned>(a) << '\n';
+                }
+                ofs << "            }},\n";
+              }
+              ofs << "          }},\n";
+            }
+            ofs << "        }},\n";
+          }
+          ofs << "      }},\n";
+        }
+        ofs << "    }},\n";
+      }
+      ofs << "  }},\n";
+    }
+    ofs << "}};\n";
+    ofs << '\n';
+    ofs << "}\n";
+    ofs << '\n';
+    ofs << "#endif // STANDARD_SUBTABLE_HPP_INCLUDE_GUARD" << std::endl;
   }
-  ofs << "// Copyright (c) 2023, 2024 Cryolite\n";
-  ofs << "// SPDX-License-Identifier: MIT\n";
-  ofs << "// This file is part of https://github.com/Cryolite/tsumonya\n";
-  ofs << '\n';
-  ofs << "#if !defined(TSUMONYA_STANDARD_TABLE_HPP_INCLUDE_GUARD)\n";
-  ofs << "#define TSUMONYA_STANDARD_TABLE_HPP_INCLUDE_GUARD\n";
-  ofs << '\n';
-  ofs << "#include <tsumonya/standard/core.hpp>\n";
-  ofs << "#include <cstdint>\n";
-  ofs << '\n';
-  ofs << '\n';
-  ofs << "namespace Tsumonya::Standard_{\n";
-  ofs << '\n';
-  ofs << "inline constexpr std::uint_fast64_t upper_bound = " << upper_bound << ";\n";
-  ofs << '\n';
-  ofs << "inline constexpr Table table = {{\n";
+
+  {
+    std::uint_fast64_t const upper_bound = [&]() -> std::uint_fast64_t {
+      std::uint_fast64_t const state = packState(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
+      Memo::const_iterator const iter = memo.find(state);
+      if (iter == memo.cend()) {
+        throw std::logic_error("A logic error.");
+      }
+      return iter->second;
+    }();
+
+    std::ofstream ofs(table_path);
+    if (!ofs) {
+      throw std::runtime_error("Failed to open the table file.");
+    }
+    ofs << "// Copyright (c) 2023, 2024 Cryolite\n";
+    ofs << "// SPDX-License-Identifier: MIT\n";
+    ofs << "// This file is part of https://github.com/Cryolite/tsumonya\n";
+    ofs << '\n';
+    ofs << "#if !defined(TSUMONYA_STANDARD_TABLE_HPP_INCLUDE_GUARD)\n";
+    ofs << "#define TSUMONYA_STANDARD_TABLE_HPP_INCLUDE_GUARD\n";
+    ofs << '\n';
+    ofs << "#include <tsumonya/standard/core.hpp>\n";
+    ofs << "#include <cstdint>\n";
+    ofs << '\n';
+    ofs << '\n';
+    ofs << "namespace Tsumonya::Standard_{\n";
+    ofs << '\n';
+    ofs << "inline constexpr std::uint_fast64_t upper_bound = " << upper_bound << ";\n";
+    ofs << '\n';
+    ofs << "inline constexpr Table table = {{\n";
     for (std::uint_fast8_t i = 0u; i < 34u; ++i) {
       std::uint_fast8_t const color = i / 9u;
       std::uint_fast8_t const number = color <= 2u ? i % 9u : UINT_FAST8_MAX;
@@ -228,7 +299,7 @@ void dumpTable(Memo const &memo, std::filesystem::path const &path)
                           return iter != memo.cend() ? iter->second : 0u;
                         }();
                       }
-                      ofs << sum << ",";
+                      ofs << sum << "u,";
                     }
                     ofs << "}}, // b = " << static_cast<unsigned>(b) << '\n';
                   }
@@ -250,24 +321,26 @@ void dumpTable(Memo const &memo, std::filesystem::path const &path)
     ofs << '\n';
     ofs << "}\n";
     ofs << '\n';
-    ofs << "#endif" << std::endl;
+    ofs << "#endif // TSUMONYA_STANDARD_TABLE_HPP_INCLUDE_GUARD" << std::endl;
+  }
 }
 
 } // namespace <anonymous>
 
 int main(int const argc, char const * const * const argv)
 {
-    if (argc < 2) {
+    if (argc < 3) {
         throw std::runtime_error("Too few arguments.");
     }
-    if (argc > 2) {
+    if (argc > 3) {
         throw std::runtime_error("Too many arguments.");
     }
 
-    std::filesystem::path const path(argv[1]);
+    std::filesystem::path const subtable_path(argv[1]);
+    std::filesystem::path const table_path(argv[2]);
 
     Memo memo;
     countNumTails(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, memo);
 
-    dumpTable(memo, path);
+    dumpTables(memo, subtable_path, table_path);
 }

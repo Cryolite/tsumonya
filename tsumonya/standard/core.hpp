@@ -1,3 +1,7 @@
+// Copyright (c) 2023, 2024 Cryolite
+// SPDX-License-Identifier: MIT
+// This file is part of https://github.com/Cryolite/tsumonya
+
 #if !defined(TSUMONYA_STANDARD_CORE_HPP_INCLUDE_GUARD)
 #define TSUMONYA_STANDARD_CORE_HPP_INCLUDE_GUARD
 
@@ -388,6 +392,24 @@ inline constexpr std::array<std::uint_fast8_t, 70u> ptable = {
   stable[68u][3u] * 2u + stable[68u][6u] * 3u + stable[68u][7u],
   stable[69u][3u] * 2u + stable[69u][6u] * 3u + stable[69u][7u],
 };
+
+// T'(i, m, h, w, x, y, a, b)
+using Subtable = std::array<
+  std::array<
+    std::array<
+      std::array<
+        std::array<
+          std::array<
+            std::array<
+              std::array<std::uint_fast64_t, 2u>, // b = 0, 1
+              2u // a = 0, 1
+            >, 5u // y = 0, 1, 2, 3, 4
+          >, 5u // x = 0, 1, 2, 3, 4
+        >, 3u // w = 0, 1, 2
+      >, 2u // h = 0, 1
+    >, 5u // m = 0, 1, 2, 3, 4
+  >, 34u // i = 0, 1, 2, ..., 33
+>;
 
 // T(i, m, h, w, x, y, a, b, s)
 using Table = std::array<
