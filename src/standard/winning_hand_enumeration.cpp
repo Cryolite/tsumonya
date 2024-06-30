@@ -1,4 +1,8 @@
-#include "hule_enumeration.hpp"
+// Copyright (c) 2023, 2024 Cryolite
+// SPDX-License-Identifier: MIT
+// This file is part of https://github.com/Cryolite/tsumonya
+
+#include "winning_hand_enumeration.hpp"
 #include <tsumonya/standard/hash.hpp>
 #include <tsumonya/standard/core.hpp>
 #include <thread>
@@ -125,7 +129,7 @@ void popHand(
   pure_hand[i] -= ptable[s];
 }
 
-void enumerateStandardHules(
+void enumerateWinningHands(
   std::uint_fast8_t const i,
   std::uint_fast8_t const m,
   std::uint_fast8_t const h,
@@ -138,7 +142,7 @@ void enumerateStandardHules(
   PengGangList &minggang_list,
   std::uint_fast8_t const winning_tile,
   bool const rong,
-  HuleCallback callback)
+  WinningHandCallback callback)
 {
   assert((i <= 34u));
   assert((m <= 4u));
@@ -192,7 +196,7 @@ void enumerateStandardHules(
       continue;
     }
     pushHand(i, s, pure_hand, chi_list, peng_list, angang_list, minggang_list);
-    enumerateStandardHules(
+    enumerateWinningHands(
       i + 1u,
       m + mtable[s],
       h + stable[s][3u],
@@ -210,7 +214,7 @@ void enumerateStandardHules(
   }
 }
 
-void threadMain(std::uint_fast8_t const s, HuleCallback callback)
+void threadMain(std::uint_fast8_t const s, WinningHandCallback callback)
 {
   PureHand pure_hand{
     0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
@@ -246,7 +250,7 @@ void threadMain(std::uint_fast8_t const s, HuleCallback callback)
     return;
   }
   pushHand(0u, s, pure_hand, chi_list, peng_list, angang_list, minggang_list);
-  enumerateStandardHules(
+  enumerateWinningHands(
     1u,
     mtable[s],
     stable[s][3u],
@@ -265,7 +269,12 @@ void threadMain(std::uint_fast8_t const s, HuleCallback callback)
 
 } // namespace <anonymous>
 
-void enumerateHules(HuleCallback callback, bool const multithreading)
+void enumerateWinningHands(WinningHandCallback callback, std::uint_fast8_t const s)
+{
+  threadMain(s, callback);
+}
+
+void enumerateWinningHands(WinningHandCallback callback, bool const multithreading)
 {
   if (multithreading) {
     std::vector<std::thread> threads;
@@ -308,7 +317,7 @@ void enumerateHules(HuleCallback callback, bool const multithreading)
       0u, 0u, 0u, 0u, 0u, 0u, 0u
     };
 
-    enumerateStandardHules(
+    enumerateWinningHands(
       0u,
       0u,
       0u,

@@ -1,4 +1,8 @@
-#include "../../src/standard/hule_enumeration.hpp"
+// Copyright (c) 2023, 2024 Cryolite
+// SPDX-License-Identifier: MIT
+// This file is part of https://github.com/Cryolite/tsumonya
+
+#include "../../src/standard/winning_hand_enumeration.hpp"
 #include <tsumonya/standard/hash.hpp>
 #include <tsumonya/standard/table.hpp>
 #include <tsumonya/standard/core.hpp>
@@ -20,8 +24,8 @@ using ChiList = std::array<std::uint_fast8_t, 21u>;
 using PengGangList = std::array<std::uint_fast8_t, 34u>;
 using Tsumonya::Standard_::getHash;
 using Table = std::vector<std::atomic_uint8_t>;
-using Tsumonya::Standard_::HuleCallback;
-using Tsumonya::Standard_::enumerateHules;
+using Tsumonya::Standard_::WinningHandCallback;
+using Tsumonya::Standard_::enumerateWinningHands;
 
 std::mutex mtx;
 
@@ -121,8 +125,8 @@ int main(int argc, char const * const *)
   Table table(upper_bound);
   std::atomic_uint_fast64_t count = 0u;
 
-  HuleCallback callback(std::bind_back(&testHash, std::ref(table), std::ref(count)));
-  enumerateHules(callback, true);
+  WinningHandCallback callback(std::bind_back(&testHash, std::ref(table), std::ref(count)));
+  enumerateWinningHands(callback, true);
 
   std::uint_fast64_t const n = std::count_if(
     table.cbegin(), table.cend(), [](std::uint8_t const x){ return x >= 1u; });

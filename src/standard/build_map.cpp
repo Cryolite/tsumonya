@@ -1,4 +1,8 @@
-#include "hule_enumeration.hpp"
+// Copyright (c) 2023, 2024 Cryolite
+// SPDX-License-Identifier: MIT
+// This file is part of https://github.com/Cryolite/tsumonya
+
+#include "winning_hand_enumeration.hpp"
 #include <tsumonya/standard/hash.hpp>
 #include <tsumonya/standard/core.hpp>
 #include <boost/python/import.hpp>
@@ -9,6 +13,7 @@
 #include <boost/python/object.hpp>
 #include <boost/timer/timer.hpp>
 #include <boost/io/ios_state.hpp>
+#include <boost/lexical_cast.hpp>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -35,8 +40,8 @@ using Tsumonya::Standard_::ntable;
 using Tsumonya::Standard_::xytable;
 using Tsumonya::Standard_::upper_bound;
 using Tsumonya::Standard_::getHash;
-using Tsumonya::Standard_::HuleCallback;
-using Tsumonya::Standard_::enumerateHules;
+using Tsumonya::Standard_::WinningHandCallback;
+using Tsumonya::Standard_::enumerateWinningHands;
 
 using PureHand = std::array<std::uint_fast8_t, 34u>;
 using ChiList = std::array<std::uint_fast8_t, 21u>;
@@ -347,15 +352,19 @@ void createEntry(
 
 int main(int argc, char const * const * const argv)
 {
-  if (argc < 2) {
+  if (argc < 3) {
     throw std::runtime_error("Too few arguments.");
   }
-  if (argc > 2)
+  if (argc > 3)
   {
     throw std::runtime_error("Too many arguments.");
   }
 
-  std::filesystem::path const path(argv[1]);
+  std::uint_fast8_t const s = boost::lexical_cast<unsigned>(argv[1]);
+  if (s >= 70u) {
+    throw std::runtime_error("An invalid argument.");
+  }
+  std::filesystem::path const path(argv[2]);
   
   Py_InitializeEx(0);
 
@@ -363,9 +372,9 @@ int main(int argc, char const * const * const argv)
   std::uint_fast64_t count = 0u;
   cpu_timer timer;
 
-  HuleCallback callback(
+  WinningHandCallback callback(
     std::bind_back(&createEntry, std::ref(map), std::ref(count), std::ref(timer)));
-  enumerateHules(callback, false);
+  enumerateWinningHands(callback, s);
 
   {
     std::ofstream ofs(path, std::ios_base::out | std::ios_base::binary);
