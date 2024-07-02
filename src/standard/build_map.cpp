@@ -13,7 +13,7 @@
 #include <boost/python/object.hpp>
 #include <boost/timer/timer.hpp>
 #include <boost/io/ios_state.hpp>
-#include <boost/lexical_cast.hpp>
+#include <mutex>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -47,6 +47,8 @@ using PureHand = std::array<std::uint_fast8_t, 34u>;
 using ChiList = std::array<std::uint_fast8_t, 21u>;
 using PengGangList = std::array<std::uint_fast8_t, 34u>;
 using Map = std::vector<std::pair<std::uint8_t, std::uint8_t>>;
+
+std::mutex mtx;
 
 void dumpEntry(
   PureHand const &pure_hand,
@@ -99,10 +101,12 @@ void createEntry(
   std::uint_fast8_t const winning_tile,
   bool const rong,
   Map &map,
-  std::uint_fast32_t &count,
+  std::uint_fast64_t &count,
   cpu_timer const &timer)
 {
   constexpr bool debugging = false;
+
+  std::lock_guard<std::mutex> lock(mtx);
 
   std::uint_fast64_t const hash = [&]() -> std::uint_fast64_t {
     try {
@@ -142,6 +146,7 @@ void createEntry(
   }
 
   python::object m_constants = python::import("mahjong.constants");
+  python::object m_yaku_config = python::import("mahjong.hand_calculating.yaku_config");
   python::object m_hand_config = python::import("mahjong.hand_calculating.hand_config");
   python::object m_meld = python::import("mahjong.meld");
   python::object m_hand = python::import("mahjong.hand_calculating.hand");
@@ -287,7 +292,72 @@ void createEntry(
       std::string error = python::extract<std::string>(error_);
       throw std::logic_error(error);
     }
-    return python::extract<long>(fan_);
+
+    std::uint_fast8_t const fan = python::extract<long>(fan_);
+    if (fan <= 12u) {
+      return fan;
+    }
+
+    bool kazoe_flag = true;
+    python::object yaku_config = m_yaku_config.attr("YakuConfig")();
+    python::object yaku_list = hand_response.attr("yaku");
+    for (long i = 0; i < python::len(yaku_list); ++i) {
+      python::object yaku = yaku_list[i];
+      if (yaku == yaku_config.attr("daisangen")) {
+        kazoe_flag = false;
+        break;
+      }
+      if (yaku == yaku_config.attr("suuankou")) {
+        kazoe_flag = false;
+        break;
+      }
+      if (yaku == yaku_config.attr("tsuisou")) {
+        kazoe_flag = false;
+        break;
+      }
+      if (yaku == yaku_config.attr("ryuisou")) {
+        kazoe_flag = false;
+        break;
+      }
+      if (yaku == yaku_config.attr("chinroto")) {
+        kazoe_flag = false;
+        break;
+      }
+      if (yaku == yaku_config.attr("shosuushi")) {
+        kazoe_flag = false;
+        break;
+      }
+      if (yaku == yaku_config.attr("suukantsu")) {
+        kazoe_flag = false;
+        break;
+      }
+      if (yaku == yaku_config.attr("chuuren_poutou")) {
+        kazoe_flag = false;
+        break;
+      }
+      if (yaku == yaku_config.attr("daburu_chuuren_poutou")) {
+        kazoe_flag = false;
+        break;
+      }
+      if (yaku == yaku_config.attr("suuankou_tanki")) {
+        kazoe_flag = false;
+        break;
+      }
+      if (yaku == yaku_config.attr("daisuushi")) {
+        kazoe_flag = false;
+        break;
+      }
+    }
+    if (kazoe_flag) {
+      return 13u;
+    }
+
+    if (fan % 13u != 0) {
+      dumpEntry(
+        pure_hand, chi_list, peng_list, angang_list, minggang_list, winning_tile, rong, std::cerr);
+      throw std::logic_error("A logic error.");
+    }
+    return 13u + fan / 13u;
   }();
 
   if (debugging) {
@@ -348,23 +418,19 @@ void createEntry(
   }
 }
 
-} // namespace `anonymous`
+} // namespace <anonymous>
 
-int main(int argc, char const * const * const argv)
+int main(int const argc, char const * const * const argv)
 {
-  if (argc < 3) {
+  if (argc < 2) {
     throw std::runtime_error("Too few arguments.");
   }
-  if (argc > 3)
+  if (argc > 2)
   {
     throw std::runtime_error("Too many arguments.");
   }
 
-  std::uint_fast8_t const s = boost::lexical_cast<unsigned>(argv[1]);
-  if (s >= 70u) {
-    throw std::runtime_error("An invalid argument.");
-  }
-  std::filesystem::path const path(argv[2]);
+  std::filesystem::path const path(argv[1u]);
   
   Py_InitializeEx(0);
 
@@ -374,10 +440,13 @@ int main(int argc, char const * const * const argv)
 
   WinningHandCallback callback(
     std::bind_back(&createEntry, std::ref(map), std::ref(count), std::ref(timer)));
-  enumerateWinningHands(callback, s);
+  enumerateWinningHands(callback, 8u);
 
   {
     std::ofstream ofs(path, std::ios_base::out | std::ios_base::binary);
+    if (!ofs) {
+      throw std::runtime_error("Failed to open the map file.");
+    }
     for (auto const [fu, fan] : map) {
       ofs << fu << fan;
     }

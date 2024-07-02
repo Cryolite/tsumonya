@@ -22,3 +22,7 @@ target_link_libraries(build_map
   PRIVATE Boost::timer
   PRIVATE Boost::headers
   PRIVATE python"${PYTHON_VERSION}")
+add_custom_target(
+  src_standard_build_map_run ALL
+  ASAN_OPTIONS=handle_abort=1 ./build_map "${CMAKE_SOURCE_DIR}/src/standard/map.bin"
+  DEPENDS build_map)

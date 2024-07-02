@@ -126,7 +126,7 @@ int main(int argc, char const * const *)
   std::atomic_uint_fast64_t count = 0u;
 
   WinningHandCallback callback(std::bind_back(&testHash, std::ref(table), std::ref(count)));
-  enumerateWinningHands(callback, true);
+  enumerateWinningHands(callback, 8u);
 
   std::uint_fast64_t const n = std::count_if(
     table.cbegin(), table.cend(), [](std::uint8_t const x){ return x >= 1u; });

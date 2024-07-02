@@ -8,6 +8,7 @@
 #include <functional>
 #include <array>
 #include <cstdint>
+#include <cstddef>
 
 
 namespace Tsumonya::Standard_{
@@ -22,9 +23,7 @@ using WinningHandCallback = std::function<
     std::uint_fast8_t,
     bool)>;
 
-void enumerateWinningHands(WinningHandCallback callback, std::uint_fast8_t s);
-
-void enumerateWinningHands(WinningHandCallback callback, bool multithreading = false);
+void enumerateWinningHands(WinningHandCallback callback, std::size_t concurrency = 1u);
 
 } // namespace Tsumonya::Standard_
 

@@ -3,6 +3,7 @@
 // This file is part of https://github.com/Cryolite/tsumonya
 
 #include "winning_hand_enumeration.hpp"
+#include "subtable.hpp"
 #include <tsumonya/standard/hash.hpp>
 #include <tsumonya/standard/core.hpp>
 #include <thread>
@@ -23,6 +24,7 @@ using Tsumonya::Standard_::mtable;
 using Tsumonya::Standard_::ntable;
 using Tsumonya::Standard_::xytable;
 using Tsumonya::Standard_::ptable;
+using Tsumonya::Standard_::subtable;
 using Tsumonya::Standard_::upper_bound;
 using PureHand = std::array<std::uint_fast8_t, 34u>;
 using ChiList = std::array<std::uint_fast8_t, 21u>;
@@ -129,7 +131,7 @@ void popHand(
   pure_hand[i] -= ptable[s];
 }
 
-void enumerateWinningHands(
+void enumerateWinningHandsDFS_(
   std::uint_fast8_t const i,
   std::uint_fast8_t const m,
   std::uint_fast8_t const h,
@@ -149,8 +151,8 @@ void enumerateWinningHands(
   assert((h <= 1u));
   assert((x <= 4u));
   assert((y <= x));
-  for (std::uint_fast8_t const x : pure_hand) {
-    assert((x <= 4u));
+  for (std::uint_fast8_t const t : pure_hand) {
+    assert((t <= 4u));
   }
   for (std::uint_fast8_t const c : chi_list) {
     assert((c <= 4u));
@@ -165,6 +167,7 @@ void enumerateWinningHands(
     assert((mg <= 1u));
   }
   assert((winning_tile == UINT_FAST8_MAX || winning_tile < 34u));
+  assert((!!callback));
 
   if (i == 34u) {
     // Termination of recursion
@@ -196,7 +199,7 @@ void enumerateWinningHands(
       continue;
     }
     pushHand(i, s, pure_hand, chi_list, peng_list, angang_list, minggang_list);
-    enumerateWinningHands(
+    enumerateWinningHandsDFS_(
       i + 1u,
       m + mtable[s],
       h + stable[s][3u],
@@ -214,8 +217,224 @@ void enumerateWinningHands(
   }
 }
 
-void threadMain(std::uint_fast8_t const s, WinningHandCallback callback)
+void enumerateWinningHandsDFS(
+  std::uint_fast8_t const i,
+  std::uint_fast8_t const m,
+  std::uint_fast8_t const h,
+  std::uint_fast8_t const x,
+  std::uint_fast8_t const y,
+  PureHand pure_hand,
+  ChiList chi_list,
+  PengGangList peng_list,
+  PengGangList angang_list,
+  PengGangList minggang_list,
+  std::uint_fast8_t const winning_tile,
+  bool const rong,
+  WinningHandCallback callback)
 {
+  enumerateWinningHandsDFS_(
+    i,
+    m,
+    h,
+    x,
+    y,
+    pure_hand,
+    chi_list,
+    peng_list,
+    angang_list,
+    minggang_list,
+    winning_tile,
+    rong,
+    callback);
+}
+
+void enumerateWinningHandsConcurrentBFS(
+  std::uint_fast8_t const i,
+  std::uint_fast8_t const m,
+  std::uint_fast8_t const h,
+  std::uint_fast8_t const x,
+  std::uint_fast8_t const y,
+  PureHand pure_hand,
+  ChiList chi_list,
+  PengGangList peng_list,
+  PengGangList angang_list,
+  PengGangList minggang_list,
+  std::uint_fast8_t const winning_tile,
+  bool const rong,
+  std::size_t const concurrency,
+  WinningHandCallback callback)
+{
+  assert((i <= 34u));
+  assert((m <= 4u));
+  assert((h <= 1u));
+  assert((x <= 4u));
+  assert((y <= x));
+  for (std::uint_fast8_t const t : pure_hand) {
+    assert((t <= 4u));
+  }
+  for (std::uint_fast8_t const c : chi_list) {
+    assert((c <= 4u));
+  }
+  for (std::uint_fast8_t const p : peng_list) {
+    assert((p <= 1u));
+  }
+  for (std::uint_fast8_t const ag : angang_list) {
+    assert((ag <= 1u));
+  }
+  for (std::uint_fast8_t const mg : minggang_list) {
+    assert((mg <= 1u));
+  }
+  assert((winning_tile == UINT_FAST8_MAX || winning_tile < 34u));
+  assert((concurrency >= 2u));
+  assert((!!callback));
+
+  if (i == 34u) {
+    // Termination of recursion
+    assert((x == 0u));
+    assert((y == 0u));
+    if (m == 4u && h == 1u && winning_tile != UINT_FAST8_MAX) {
+      callback(
+        pure_hand,
+        chi_list,
+        peng_list,
+        angang_list,
+        minggang_list,
+        winning_tile,
+        rong);
+    }
+    return;
+  }
+
+  std::vector<std::jthread> threads;
+
+  std::uint_fast8_t const color = i / 9u;
+  std::uint_fast8_t const number = color <= 2u ? i % 9u : UINT_FAST8_MAX;
+  std::uint_fast8_t const cindex = color <= 2u ? color * 7u + number : UINT_FAST8_MAX;
+  bool const shunzi_prohibited = color <= 2u && number >= 7u || color == 3u;
+
+  bool const a = pure_hand[i] >= 1u;
+  bool const has_winning_tile = winning_tile != UINT_FAST8_MAX;
+
+  std::uint_fast8_t const ii = i + 1u;
+  for (std::uint_fast8_t s = 0u; s < stable.size(); ++s) {
+    if (!isValidTransition(i, m, h, x, y, a, shunzi_prohibited, has_winning_tile, s)) {
+      continue;
+    }
+
+    std::uint_fast8_t const mm = m + mtable[s];
+    std::uint_fast8_t const hh = h + stable[s][3u];
+    std::uint_fast8_t const ww = [&]() -> std::uint_fast8_t {
+      if (winning_tile != UINT_FAST8_MAX) {
+        return rong ? 2u : 1u;
+      }
+      return stable[s][2u];
+    }();
+    std::uint_fast8_t const xx = y + xytable[s];
+    std::uint_fast8_t const yy = xytable[s];
+    std::uint_fast8_t const aa = pure_hand[i] + ptable[s] >= 1u ? 1u : 0u;
+    std::uint_fast8_t const bb = [&]() -> std::uint_fast8_t {
+      if (number >= 7u) {
+        return 0u;
+      }
+      return pure_hand[i + 1u] >= 1u ? 1u : 0u;
+    }();
+    std::uint_fast64_t const n = subtable[ii][mm][hh][ww][xx][yy][aa][bb];
+
+    pushHand(i, s, pure_hand, chi_list, peng_list, angang_list, minggang_list);
+    if (n <= upper_bound / concurrency) {
+      threads.emplace_back(
+        &enumerateWinningHandsDFS,
+        ii,
+        mm,
+        hh,
+        xx,
+        yy,
+        pure_hand,
+        chi_list,
+        peng_list,
+        angang_list,
+        minggang_list,
+        stable[s][2u] >= 1u ? i : winning_tile,
+        rong || stable[s][2u] == 2u,
+        callback);
+    }
+    else {
+      threads.emplace_back(
+        &enumerateWinningHandsConcurrentBFS,
+        ii,
+        mm,
+        hh,
+        xx,
+        yy,
+        pure_hand,
+        chi_list,
+        peng_list,
+        angang_list,
+        minggang_list,
+        stable[s][2u] >= 1u ? i : winning_tile,
+        rong || stable[s][2u] == 2u,
+        concurrency,
+        callback);
+    }
+    popHand(i, s, pure_hand, chi_list, peng_list, angang_list, minggang_list);
+  }
+}
+
+} // namespace <anonymous>
+
+void enumerateWinningHands(WinningHandCallback callback, std::size_t const concurrency)
+{
+  if (concurrency == 0u) {
+    throw std::invalid_argument("`concurrency` must be a positive integer.");
+  }
+
+  if (concurrency == 1u) {
+    PureHand pure_hand{
+      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+      0u, 0u, 0u, 0u, 0u, 0u, 0u
+    };
+    ChiList chi_list{
+      0u, 0u, 0u, 0u, 0u, 0u, 0u,
+      0u, 0u, 0u, 0u, 0u, 0u, 0u,
+      0u, 0u, 0u, 0u, 0u, 0u, 0u
+    };
+    PengGangList peng_list{
+      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+      0u, 0u, 0u, 0u, 0u, 0u, 0u
+    };
+    PengGangList angang_list{
+      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+      0u, 0u, 0u, 0u, 0u, 0u, 0u
+    };
+    PengGangList minggang_list{
+      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
+      0u, 0u, 0u, 0u, 0u, 0u, 0u
+    };
+    enumerateWinningHandsDFS_(
+      0u, // i
+      0u, // m
+      0u, // h
+      0u, // x
+      0u, // y
+      pure_hand,
+      chi_list,
+      peng_list,
+      angang_list,
+      minggang_list,
+      UINT_FAST8_MAX, // winning_tile
+      false, // rong
+      callback);
+    return;
+  }
+
   PureHand pure_hand{
     0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
     0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
@@ -246,92 +465,21 @@ void threadMain(std::uint_fast8_t const s, WinningHandCallback callback)
     0u, 0u, 0u, 0u, 0u, 0u, 0u
   };
 
-  if (!isValidTransition(0u, 0u, 0u, 0u, 0u, false, false, false, s)) {
-    return;
-  }
-  pushHand(0u, s, pure_hand, chi_list, peng_list, angang_list, minggang_list);
-  enumerateWinningHands(
-    1u,
-    mtable[s],
-    stable[s][3u],
-    xytable[s],
-    xytable[s],
+  enumerateWinningHandsConcurrentBFS(
+    0u, // i
+    0u, // m
+    0u, // h
+    0u, // x
+    0u, // y
     pure_hand,
     chi_list,
     peng_list,
     angang_list,
     minggang_list,
-    stable[s][2u] >= 1u ? 0u : UINT_FAST8_MAX,
-    stable[s][2u] == 2u,
+    UINT_FAST8_MAX, // winning_tile
+    false, // rong
+    concurrency,
     callback);
-  popHand(0u, s, pure_hand, chi_list, peng_list, angang_list, minggang_list);
-}
-
-} // namespace <anonymous>
-
-void enumerateWinningHands(WinningHandCallback callback, std::uint_fast8_t const s)
-{
-  threadMain(s, callback);
-}
-
-void enumerateWinningHands(WinningHandCallback callback, bool const multithreading)
-{
-  if (multithreading) {
-    std::vector<std::thread> threads;
-    for (std::uint_fast8_t s = 0u; s < stable.size(); ++s) {
-      std::thread th(&threadMain, s, callback);
-      threads.push_back(std::move(th));
-    }      
-    for (std::thread &th : threads) {
-      th.join();
-    }
-  }
-  else {
-    PureHand pure_hand{
-      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-      0u, 0u, 0u, 0u, 0u, 0u, 0u
-    };
-    ChiList chi_list{
-      0u, 0u, 0u, 0u, 0u, 0u, 0u,
-      0u, 0u, 0u, 0u, 0u, 0u, 0u,
-      0u, 0u, 0u, 0u, 0u, 0u, 0u
-    };
-    PengGangList peng_list{
-      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-      0u, 0u, 0u, 0u, 0u, 0u, 0u
-    };
-    PengGangList angang_list{
-      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-      0u, 0u, 0u, 0u, 0u, 0u, 0u
-    };
-    PengGangList minggang_list{
-      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-      0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
-      0u, 0u, 0u, 0u, 0u, 0u, 0u
-    };
-
-    enumerateWinningHands(
-      0u,
-      0u,
-      0u,
-      0u,
-      0u,
-      pure_hand,
-      chi_list,
-      peng_list,
-      angang_list,
-      minggang_list,
-      UINT_FAST8_MAX,
-      false,
-      callback);
-  }
 }
 
 } // namespace Tsumonya::Standard_
