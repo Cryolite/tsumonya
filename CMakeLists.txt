@@ -16,6 +16,7 @@ endif()
 
 message("PYTHON_VERSION=${PYTHON_VERSION}")
 message("PYTHON_INCLUDE_PATH=${PYTHON_INCLUDE_PATH}")
+message("PYTHON_LIBRARY_PATH=${PYTHON_LIBRARY_PATH}")
 
 message("CMAKE_C_COMPILER=${CMAKE_C_COMPILER}")
 message("CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}")
@@ -31,6 +32,10 @@ message("CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 include_directories(
   "${PYTHON_INCLUDE_PATH}"
   .)
+
+if (NOT (PYTHON_LIBRARY_PATH STREQUAL ""))
+  link_directories("${PYTHON_LIBRARY_PATH}")
+endif()
 
 if (("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"))
   add_compile_options(-Werror)

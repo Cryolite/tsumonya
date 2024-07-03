@@ -3,6 +3,7 @@
 // This file is part of https://github.com/Cryolite/tsumonya
 
 #include "winning_hand_enumeration.hpp"
+#include "gil.hpp"
 #include <tsumonya/standard/hash.hpp>
 #include <tsumonya/standard/core.hpp>
 #include <boost/python/import.hpp>
@@ -22,6 +23,7 @@
 #include <ios>
 #include <vector>
 #include <array>
+#include <functional>
 #include <utility>
 #include <stdexcept>
 #include <climits>
@@ -30,6 +32,14 @@
 
 
 namespace{
+
+using std::placeholders::_1;
+using std::placeholders::_2;
+using std::placeholders::_3;
+using std::placeholders::_4;
+using std::placeholders::_5;
+using std::placeholders::_6;
+using std::placeholders::_7;
 
 using boost::timer::cpu_timer;
 namespace python = boost::python;
@@ -107,6 +117,7 @@ void createEntry(
   constexpr bool debugging = false;
 
   std::lock_guard<std::mutex> lock(mtx);
+  Tsumonya::GIL::RecursiveLock gil_lock;
 
   std::uint_fast64_t const hash = [&]() -> std::uint_fast64_t {
     try {
@@ -430,17 +441,22 @@ int main(int const argc, char const * const * const argv)
     throw std::runtime_error("Too many arguments.");
   }
 
+  std::size_t const concurrency = 8u;
   std::filesystem::path const path(argv[1u]);
-  
+
   Py_InitializeEx(0);
+  PyThreadState *p_gil_state;
+  if (concurrency >= 2u) {
+    p_gil_state = PyEval_SaveThread();
+  }
 
   Map map(upper_bound, Map::value_type(UINT8_MAX, UINT8_MAX));
   std::uint_fast64_t count = 0u;
   cpu_timer timer;
 
   WinningHandCallback callback(
-    std::bind_back(&createEntry, std::ref(map), std::ref(count), std::ref(timer)));
-  enumerateWinningHands(callback, 8u);
+    std::bind(&createEntry, _1, _2, _3, _4, _5, _6, _7, std::ref(map), std::ref(count), std::ref(timer)));
+  enumerateWinningHands(callback, concurrency);
 
   {
     std::ofstream ofs(path, std::ios_base::out | std::ios_base::binary);
@@ -452,5 +468,8 @@ int main(int const argc, char const * const * const argv)
     }
   }
 
+  if (concurrency >= 2u) {
+    PyEval_RestoreThread(p_gil_state);
+  }
   Py_FinalizeEx();
 }
