@@ -11,6 +11,7 @@ RUN set -euxo pipefail; \
       curl \
       g++ \
       git-core \
+      git-lfs \
       gpg \
       libbz2-dev \
       libffi-dev \
@@ -29,6 +30,21 @@ RUN set -euxo pipefail; \
 USER ubuntu
 
 RUN set -euxo pipefail; \
+    git lfs install; \
+    pushd /workspace; \
+    git clone https://github.com/Cryolite/prerequisites; \
+    popd; \
+    /workspace/prerequisites/gcc/install --debug --prefix "/home/ubuntu/.local"
+ENV C_INCLUDE_PATH="/home/ubuntu/.local/include${C_INCLUDE_PATH:+:$C_INCLUDE_PATH}"
+ENV CPLUS_INCLUDE_PATH="/home/ubuntu/.local/include${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}"
+ENV LIBRARY_PATH="/home/ubuntu/.local/lib64:/home/ubuntu/.local/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
+ENV LD_LIBRARY_PATH="/home/ubuntu/.local/lib64:/home/ubuntu/.local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+ENV PATH="/home/ubuntu/.local/bin${PATH:+:$PATH}"
+ENV CC="/home/ubuntu/.local/bin/gcc"
+ENV CXX="/home/ubuntu/.local/bin/g++"
+
+RUN set -euxo pipefail; \
+    /workspaces/prerequisites/cmake/install --debug --prefix "/home/ubuntu/.local"; \
     curl https://pyenv.run | bash
 ENV PYENV_ROOT="/home/ubuntu/.pyenv"
 ENV PATH="$PYENV_ROOT/bin${PATH:+:$PATH}"
@@ -36,8 +52,8 @@ ENV PATH="$PYENV_ROOT/bin${PATH:+:$PATH}"
 RUN set -euxo pipefail; \
     PYTHON_LATEST_VERSION=$(pyenv install -l | grep -Eo '^[[:space:]]+[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+$' | grep -Eo '[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+' | LANG=C.UTF-8 sort -V | tail -n 1); \
     PYTHON_LATEST_VERSION_MAJOR=$(echo $PYTHON_LATEST_VERSION | grep -Eo '^[[:digit:]]+\.[[:digit:]]+'); \
-    pyenv install "$PYTHON_LATEST_VERSION"; \
-    pyenv global "$PYTHON_LATEST_VERSION"; \
+    pyenv install $PYTHON_LATEST_VERSION; \
+    pyenv global $PYTHON_LATEST_VERSION; \
     pushd /home/ubuntu/.pyenv/versions/$PYTHON_LATEST_VERSION/lib; \
     ln -s libpython$PYTHON_LATEST_VERSION_MAJOR.so libpython.so; \
     popd; \
@@ -48,9 +64,6 @@ RUN set -euxo pipefail; \
       mahjong==1.1.11 \
       setuptools \
       wheel; \
-    pushd /workspace; \
-    git clone 'https://github.com/Cryolite/prerequisites'; \
-    popd; \
     echo "import toolset : using ; using python : : \"$PYTHON_PREFIX/bin/python3\" ;" > /home/ubuntu/user-config.jam; \
     /workspace/prerequisites/boost/download --debug --source-dir /workspace/boost; \
     /workspace/prerequisites/boost/build --debug --source-dir /workspace/boost --prefix /home/ubuntu/.local -- \

@@ -32,6 +32,6 @@
 		"CPLUS_INCLUDE_PATH": "/home/vscode/.local/include",
 		"LIBRARY_PATH": "/home/vscode/.local/lib64:/home/vscode/.local/lib",
 		"LD_LIBRARY_PATH": "/home/vscode/.local/lib64:/home/vscode/.local/lib",
-		"PATH": "/home/vscode/.local/bin:${containerEnv:PATH}"
+		"PATH": "/home/vscode/.pyenv/bin:/home/vscode/.local/bin:${containerEnv:PATH}"
 	}
 }

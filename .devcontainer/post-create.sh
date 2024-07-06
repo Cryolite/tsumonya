@@ -15,55 +15,56 @@ fi
 sudo apt-get -y update
 sudo apt-get -y dist-upgrade
 sudo apt-get -y install \
-  g++ \
-  git-lfs \
-  python3 \
-  python3-dev
+    bzip2 \
+    cmake \
+    curl \
+    g++ \
+    git-core \
+    git-lfs \
+    gpg \
+    libbz2-dev \
+    libffi-dev \
+    liblzma-dev \
+    libncurses-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    libssl-dev \
+    make \
+    xz-utils \
+    zlib1g-dev
+sudo apt-get clean
+sudo rm -rf /var/lib/apt/lists/*
+sudo chown -R vscode:vscode /workspaces
 
-git lfs install
+pushd /workspaces
+git clone https://github.com/Cryolite/prerequisites
+popd
 
-sudo chown vscode:vscode /workspaces
+/workspaces/prerequisites/gcc/install --debug --prefix "$HOME/.local"
+export CC="$HOME/.local/bin/gcc"
+export CXX="$HOME/.local/bin/g++"
 
-# Install prerequisite Python packages.
+/workspaces/prerequisites/cmake/install --debug --prefix "$HOME/.local"
+
+curl https://pyenv.run | bash
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin${PATH:+:$PATH}"
+PYTHON_LATEST_VERSION=$(pyenv install -l | grep -Eo '^[[:space:]]+[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+$' | grep -Eo '[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+' | LANG=C.UTF-8 sort -V | tail -n 1)
+PYTHON_LATEST_VERSION_MAJOR=$(echo $PYTHON_LATEST_VERSION | grep -Eo '^[[:digit:]]+\.[[:digit:]]+')
+pyenv install $PYTHON_LATEST_VERSION
+pyenv global $PYTHON_LATEST_VERSION
+pushd "$PYENV_ROOT/versions/$PYTHON_LATEST_VERSION/lib"
+ln -s libpython$PYTHON_LATEST_VERSION_MAJOR.so libpython.so
+popd
+eval "$(pyenv init -)"
+PYTHON_PREFIX="$(python3 -c 'import sys; print(sys.prefix);')"
 python3 -m pip install -U pip
 python3 -m pip install -U \
   mahjong==1.1.11 \
   setuptools \
   wheel
 
-# Clone `prerequisites`.
-pushd /workspaces
-git clone 'https://github.com/Cryolite/prerequisites'
-popd
-
-# Install GCC.
-/workspaces/prerequisites/gcc/install --debug --prefix "$HOME/.local"
-if [[ -v C_INCLUDE_PATH ]]; then
-  OLD_C_INCLUDE_PATH="$C_INCLUDE_PATH"
-fi
-export C_INCLUDE_PATH="$HOME/.local/include${C_INCLUDE_PATH:+:$C_INCLUDE_PATH}"
-if [[ -v CPLUS_INCLUDE_PATH ]]; then
-  OLD_CPLUS_INCLUDE_PATH="$CPLUS_INCLUDE_PATH"
-fi
-export CPLUS_INCLUDE_PATH="$HOME/.local/include${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}"
-if [[ -v LIBRARY_PATH ]]; then
-  OLD_LIBRARY_PATH="$LIBRARY_PATH"
-fi
-export LIBRARY_PATH="$HOME/.local/lib64:$HOME/.local/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
-if [[ -v LD_LIBRARY_PATH ]]; then
-  OLD_LD_LIBRARY_PATH="$LD_LIBRARY_PATH"
-fi
-export LD_LIBRARY_PATH="$HOME/.local/lib64:$HOME/.local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-if [[ -v PATH ]]; then
-  OLD_PATH="$PATH"
-fi
-export PATH="$HOME/.local/bin${PATH:+:$PATH}"
-
-# Install CMake.
-/workspaces/prerequisites/cmake/install --debug --prefix "$HOME/.local"
-
-# Install Boost.Stacktrace and Boost.Python.
-echo 'import toolset : using ; using python : : /usr/local/python/current/bin/python3 ;' > "$HOME/user-config.jam"
+echo "import toolset : using ; using python : : \"$PYTHON_PREFIX/bin/python3\" ;" > "$HOME/user-config.jam"
 /workspaces/prerequisites/boost/download --debug --source-dir /workspaces/boost
 /workspaces/prerequisites/boost/build --debug --source-dir /workspaces/boost --prefix "$HOME/.local" -- \
   -d+2 --with-headers --with-timer --with-python --build-type=complete --layout=tagged \

@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <vector>
 #include <array>
+#include <functional>
 #include <cstdint>
 #include <cassert>
 
@@ -103,9 +104,10 @@ try {
   ++table[hash];
 
   ++count;
-  if (count.load() % 1000000u == 0u) {
+  std::uint_fast64_t const count_ = count.load();
+  if (count_ % 1000000u == 0u) {
     std::lock_guard<std::mutex> lock(mtx);
-    std::cout << count.load() << " / " << upper_bound << std::endl;
+    std::cout << count_ << " / " << upper_bound << std::endl;
   }
 }
 catch (std::exception const &e) {

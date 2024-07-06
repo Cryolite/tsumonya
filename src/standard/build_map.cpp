@@ -33,14 +33,6 @@
 
 namespace{
 
-using std::placeholders::_1;
-using std::placeholders::_2;
-using std::placeholders::_3;
-using std::placeholders::_4;
-using std::placeholders::_5;
-using std::placeholders::_6;
-using std::placeholders::_7;
-
 using boost::timer::cpu_timer;
 namespace python = boost::python;
 
@@ -455,7 +447,7 @@ int main(int const argc, char const * const * const argv)
   cpu_timer timer;
 
   WinningHandCallback callback(
-    std::bind(&createEntry, _1, _2, _3, _4, _5, _6, _7, std::ref(map), std::ref(count), std::ref(timer)));
+    std::bind_back(&createEntry, std::ref(map), std::ref(count), std::ref(timer)));
   enumerateWinningHands(callback, concurrency);
 
   {
