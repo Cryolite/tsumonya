@@ -303,6 +303,9 @@ void createEntry(
 
     bool const true_yiman_flag = [&]() -> bool {
       python::object yaku_list = hand_response.attr("yaku");
+      if (yaku_list.is_none()) {
+        yaku_list = python::list();
+      }
       for (long i = 0; i < python::len(yaku_list); ++i) {
         python::object yaku = yaku_list[i];
         if (yaku.attr("name") == "Daisangen") {
@@ -351,6 +354,9 @@ void createEntry(
     }
 
     python::object yaku_list = hand_response.attr("yaku");
+    if (yaku_list.is_none()) {
+      yaku_list = python::list();
+    }
     for (long i = 0; i < python::len(yaku_list); ++i) {
       python::object yaku = yaku_list[i];
       if (yaku.attr("name") == "Pinfu") {
