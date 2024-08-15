@@ -72,6 +72,8 @@ pyenv global $PYTHON_LATEST_VERSION
 pushd "$PYENV_ROOT/versions/$PYTHON_LATEST_VERSION/lib"
 ln -s libpython$PYTHON_LATEST_VERSION_MAJOR.so libpython.so
 popd
+echo 'eval "$(pyenv init -)"' >> "$HOME/.bashrc"
+echo 'eval "$(pyenv init -)"' >> "$HOME/.profile"
 eval "$(pyenv init -)"
 PYTHON_PREFIX="$(python3 -c 'import sys; print(sys.prefix);')"
 python3 -m pip install -U pip
