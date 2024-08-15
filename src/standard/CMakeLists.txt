@@ -31,17 +31,3 @@ target_link_libraries(build_map
 #  src_standard_build_map_run ALL
 #  ASAN_OPTIONS=handle_abort=1 ./build_map "${CMAKE_SOURCE_DIR}/src/standard/map.bin"
 #  DEPENDS build_map)
-
-add_executable(build_duplicate_map
-  build_duplicate_map.cpp)
-target_link_libraries(build_duplicate_map
-  PRIVATE src_standard
-  PRIVATE Boost::python
-  PRIVATE Boost::timer
-  PRIVATE Boost::headers
-  PRIVATE python"${PYTHON_VERSION}")
-add_custom_command(
-  OUTPUT duplicate_map.bin
-  COMMAND ASAN_OPTIONS=handle_abort=1 ./build_duplicate_map duplicate_map.bin
-  COMMAND cp duplicate_map.bin "${CMAKE_SOURCE_DIR}/src/standard/duplicate_map.bin"
-  DEPENDS build_duplicate_map)
