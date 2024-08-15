@@ -15,13 +15,8 @@ fi
 sudo apt-get -y update
 sudo apt-get -y dist-upgrade
 sudo apt-get -y install \
-    bzip2 \
-    cmake \
-    curl \
-    g++ \
-    git-core \
+    git \
     git-lfs \
-    gpg \
     libbz2-dev \
     libffi-dev \
     liblzma-dev \
@@ -29,8 +24,6 @@ sudo apt-get -y install \
     libreadline-dev \
     libsqlite3-dev \
     libssl-dev \
-    make \
-    xz-utils \
     zlib1g-dev
 sudo apt-get clean
 sudo rm -rf /var/lib/apt/lists/*
@@ -41,13 +34,36 @@ git clone https://github.com/Cryolite/prerequisites
 popd
 
 /workspaces/prerequisites/gcc/install --debug --prefix "$HOME/.local"
+echo 'export C_INCLUDE_PATH="$HOME/.local/include${C_INCLUDE_PATH:+:$C_INCLUDE_PATH}"' >> "$HOME/.bashrc"
+echo 'export C_INCLUDE_PATH="$HOME/.local/include${C_INCLUDE_PATH:+:$C_INCLUDE_PATH}"' >> "$HOME/.profile"
+export C_INCLUDE_PATH="$HOME/.local/include${C_INCLUDE_PATH:+:$C_INCLUDE_PATH}"
+echo 'export CPLUS_INCLUDE_PATH="$HOME/.local/include${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}"' >> "$HOME/.bashrc"
+echo 'export CPLUS_INCLUDE_PATH="$HOME/.local/include${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}"' >> "$HOME/.profile"
+export CPLUS_INCLUDE_PATH="$HOME/.local/include${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}"
+echo 'export LIBRARY_PATH="$HOME/.local/lib64:$HOME/.local/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"' >> "$HOME/.bashrc"
+echo 'export LIBRARY_PATH="$HOME/.local/lib64:$HOME/.local/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"' >> "$HOME/.profile"
+export LIBRARY_PATH="$HOME/.local/lib64:$HOME/.local/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
+echo 'export LD_LIBRARY_PATH="$HOME/.local/lib64:$HOME/.local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' >> "$HOME/.bashrc"
+echo 'export LD_LIBRARY_PATH="$HOME/.local/lib64:$HOME/.local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' >> "$HOME/.profile"
+export LD_LIBRARY_PATH="$HOME/.local/lib64:$HOME/.local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+echo 'export CC="$HOME/.local/bin/gcc"' >> "$HOME/.bashrc"
+echo 'export CC="$HOME/.local/bin/gcc"' >> "$HOME/.profile"
 export CC="$HOME/.local/bin/gcc"
+echo 'export CXX="$HOME/.local/bin/g++"' >> "$HOME/.bashrc"
+echo 'export CXX="$HOME/.local/bin/g++"' >> "$HOME/.profile"
 export CXX="$HOME/.local/bin/g++"
+echo 'export PATH="$HOME/.local/bin${PATH:+:$PATH}"' >> "$HOME/.bashrc"
+echo 'export PATH="$HOME/.local/bin${PATH:+:$PATH}"' >> "$HOME/.profile"
+export PATH="$HOME/.local/bin${PATH:+:$PATH}"
 
 /workspaces/prerequisites/cmake/install --debug --prefix "$HOME/.local"
 
 curl https://pyenv.run | bash
+echo 'export PYENV_ROOT="$HOME/.pyenv"' >> "$HOME/.bashrc"
+echo 'export PYENV_ROOT="$HOME/.pyenv"' >> "$HOME/.profile"
 export PYENV_ROOT="$HOME/.pyenv"
+echo 'export PATH="$PYENV_ROOT/bin${PATH:+:$PATH}"' >> "$HOME/.bashrc"
+echo 'export PATH="$PYENV_ROOT/bin${PATH:+:$PATH}"' >> "$HOME/.profile"
 export PATH="$PYENV_ROOT/bin${PATH:+:$PATH}"
 PYTHON_LATEST_VERSION=$(pyenv install -l | grep -Eo '^[[:space:]]+[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+$' | grep -Eo '[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+' | LANG=C.UTF-8 sort -V | tail -n 1)
 PYTHON_LATEST_VERSION_MAJOR=$(echo $PYTHON_LATEST_VERSION | grep -Eo '^[[:digit:]]+\.[[:digit:]]+')
