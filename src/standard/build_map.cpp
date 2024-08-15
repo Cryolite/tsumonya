@@ -300,76 +300,64 @@ void createEntry(
     }
 
     std::uint_fast8_t const fan = python::extract<long>(fan_);
-    if (fan <= 12u) {
+
+    bool const true_yiman_flag = [&]() -> bool {
       python::object yaku_list = hand_response.attr("yaku");
       for (long i = 0; i < python::len(yaku_list); ++i) {
         python::object yaku = yaku_list[i];
-        if (yaku.attr("name") == "Pinfu") {
-          return fan + 128u;
+        if (yaku.attr("name") == "Daisangen") {
+          return true;
+        }
+        if (yaku.attr("name") == "Suu Ankou") {
+          return true;
+        }
+        if (yaku.attr("name") == "Tsuu Iisou") {
+          return true;
+        }
+        if (yaku.attr("name") == "Ryuuiisou") {
+          return true;
+        }
+        if (yaku.attr("name") == "Chinroutou") {
+          return true;
+        }
+        if (yaku.attr("name") == "Shousuushii") {
+          return true;
+        }
+        if (yaku.attr("name") == "Suu Kantsu") {
+          return true;
+        }
+        if (yaku.attr("name") == "Chuuren Poutou") {
+          return true;
+        }
+        if (yaku.attr("name") == "Daburu Chuuren Poutou") {
+          return true;
+        }
+        if (yaku.attr("name") == "Suu Ankou Tanki") {
+          return true;
+        }
+        if (yaku.attr("name") == "Dai Suushii") {
+          return true;
         }
       }
-      return fan;
+      return false;
+    }();
+    if (true_yiman_flag) {
+      if (fan % 13u != 0) {
+        dumpEntry(
+          pure_hand, chi_list, peng_list, angang_list, minggang_list, winning_tile, rong, std::cerr);
+        throw std::logic_error("A logic error.");
+      }
+      return 13u + fan / 13u;
     }
 
-    bool kazoe_flag = true;
     python::object yaku_list = hand_response.attr("yaku");
     for (long i = 0; i < python::len(yaku_list); ++i) {
       python::object yaku = yaku_list[i];
-      if (yaku.attr("name") == "Daisangen") {
-        kazoe_flag = false;
-        break;
-      }
-      if (yaku.attr("name") == "Suu Ankou") {
-        kazoe_flag = false;
-        break;
-      }
-      if (yaku.attr("name") == "Tsuu Iisou") {
-        kazoe_flag = false;
-        break;
-      }
-      if (yaku.attr("name") == "Ryuuiisou") {
-        kazoe_flag = false;
-        break;
-      }
-      if (yaku.attr("name") == "Chinroutou") {
-        kazoe_flag = false;
-        break;
-      }
-      if (yaku.attr("name") == "Shousuushii") {
-        kazoe_flag = false;
-        break;
-      }
-      if (yaku.attr("name") == "Suu Kantsu") {
-        kazoe_flag = false;
-        break;
-      }
-      if (yaku.attr("name") == "Chuuren Poutou") {
-        kazoe_flag = false;
-        break;
-      }
-      if (yaku.attr("name") == "Daburu Chuuren Poutou") {
-        kazoe_flag = false;
-        break;
-      }
-      if (yaku.attr("name") == "Suu Ankou Tanki") {
-        kazoe_flag = false;
-        break;
-      }
-      if (yaku.attr("name") == "Dai Suushii") {
-        kazoe_flag = false;
-        break;
+      if (yaku.attr("name") == "Pinfu") {
+        return fan + 128u;
       }
     }
-    if (kazoe_flag) {
-      return 13u;
-    }
-
-    if (fan % 13u != 0) {
-      dumpEntry(
-        pure_hand, chi_list, peng_list, angang_list, minggang_list, winning_tile, rong, std::cerr);
-      throw std::logic_error("A logic error.");
-    }
-    return 13u + fan / 13u;
+    return fan;
   }();
 
   if (debugging) {
