@@ -35,11 +35,10 @@ RUN set -euxo pipefail; \
     git clone https://github.com/Cryolite/prerequisites; \
     popd; \
     /workspace/prerequisites/gcc/install --debug --prefix "/home/ubuntu/.local"
-ENV C_INCLUDE_PATH="/home/ubuntu/.local/include${C_INCLUDE_PATH:+:$C_INCLUDE_PATH}"
-ENV CPLUS_INCLUDE_PATH="/home/ubuntu/.local/include${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}"
-ENV LIBRARY_PATH="/home/ubuntu/.local/lib64:/home/ubuntu/.local/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
-ENV LD_LIBRARY_PATH="/home/ubuntu/.local/lib64:/home/ubuntu/.local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-ENV PATH="/home/ubuntu/.local/bin${PATH:+:$PATH}"
+ENV C_INCLUDE_PATH="/home/ubuntu/.local/include"
+ENV CPLUS_INCLUDE_PATH="/home/ubuntu/.local/include"
+ENV LIBRARY_PATH="/home/ubuntu/.local/lib64:/home/ubuntu/.local/lib"
+ENV LD_LIBRARY_PATH="/home/ubuntu/.local/lib64:/home/ubuntu/.local/lib"
 ENV CC="/home/ubuntu/.local/bin/gcc"
 ENV CXX="/home/ubuntu/.local/bin/g++"
 
