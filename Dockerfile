@@ -39,6 +39,7 @@ ENV C_INCLUDE_PATH="/home/ubuntu/.local/include"
 ENV CPLUS_INCLUDE_PATH="/home/ubuntu/.local/include"
 ENV LIBRARY_PATH="/home/ubuntu/.local/lib64:/home/ubuntu/.local/lib"
 ENV LD_LIBRARY_PATH="/home/ubuntu/.local/lib64:/home/ubuntu/.local/lib"
+ENV PATH="/home/ubuntu/.local/bin${PATH:+:$PATH}"
 ENV CC="/home/ubuntu/.local/bin/gcc"
 ENV CXX="/home/ubuntu/.local/bin/g++"
 
