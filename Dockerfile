@@ -44,7 +44,7 @@ ENV CC="/home/ubuntu/.local/bin/gcc"
 ENV CXX="/home/ubuntu/.local/bin/g++"
 
 RUN set -euxo pipefail; \
-    /workspaces/prerequisites/cmake/install --debug --prefix "/home/ubuntu/.local"; \
+    /workspace/prerequisites/cmake/install --debug --prefix "/home/ubuntu/.local"; \
     curl https://pyenv.run | bash
 ENV PYENV_ROOT="/home/ubuntu/.pyenv"
 ENV PATH="$PYENV_ROOT/bin${PATH:+:$PATH}"
