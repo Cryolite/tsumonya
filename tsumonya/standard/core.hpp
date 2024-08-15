@@ -5,7 +5,9 @@
 #if !defined(TSUMONYA_STANDARD_CORE_HPP_INCLUDE_GUARD)
 #define TSUMONYA_STANDARD_CORE_HPP_INCLUDE_GUARD
 
+#include <vector>
 #include <array>
+#include <utility>
 #include <cstdint>
 
 
@@ -430,6 +432,8 @@ using Table = std::array<
     >, 5u
   >, 34u
 >;
+
+using Map = std::vector<std::pair<std::uint8_t, std::uint8_t>>;
 
 } // namespace Tsumonya::Standard_
 

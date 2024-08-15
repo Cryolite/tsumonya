@@ -3,12 +3,14 @@
 // This file is part of https://github.com/Cryolite/tsumonya
 
 #include "winning_hand_enumeration.hpp"
+#include "../../tsumonya/standard/core.hpp"
 #include "gil.hpp"
 #include <tsumonya/standard/hash.hpp>
 #include <tsumonya/standard/core.hpp>
 #include <boost/python/import.hpp>
 #include <boost/python/extract.hpp>
 #include <boost/python/dict.hpp>
+#include <boost/python/list.hpp>
 #include <boost/python/tuple.hpp>
 #include <boost/python/long.hpp>
 #include <boost/python/object.hpp>
@@ -48,7 +50,8 @@ using Tsumonya::Standard_::enumerateWinningHands;
 using PureHand = std::array<std::uint_fast8_t, 34u>;
 using ChiList = std::array<std::uint_fast8_t, 21u>;
 using PengGangList = std::array<std::uint_fast8_t, 34u>;
-using Map = std::vector<std::pair<std::uint8_t, std::uint8_t>>;
+
+using Tsumonya::Standard_::Map;
 
 std::mutex mtx;
 
@@ -244,11 +247,11 @@ void createEntry(
     }
   }
 
-  python::list tiles134;
+  python::list tiles136;
   for (std::uint_fast8_t i = 0u; i < 34u; ++i) {
     for (std::uint_fast8_t j = 1u; j <= 4u; ++j) {
       if (tiles34[i] >= j) {
-        tiles134.append(i * 4u + j - 1u);
+        tiles136.append(i * 4u + j - 1u);
       }
     }
   }
@@ -265,7 +268,7 @@ void createEntry(
   python::object hand_config = m_hand_config.attr("HandConfig")(*args, **kwargs);
 
   python::object hand_calculator = m_hand.attr("HandCalculator")();
-  args = python::make_tuple(tiles134, winning_tile * 4u);
+  args = python::make_tuple(tiles136, winning_tile * 4u);
   kwargs = python::dict();
   kwargs["melds"] = melds;
   kwargs["config"] = hand_config;
@@ -298,55 +301,61 @@ void createEntry(
 
     std::uint_fast8_t const fan = python::extract<long>(fan_);
     if (fan <= 12u) {
+      python::object yaku_list = hand_response.attr("yaku");
+      for (long i = 0; i < python::len(yaku_list); ++i) {
+        python::object yaku = yaku_list[i];
+        if (yaku.attr("name") == "Pinfu") {
+          return fan + 128u;
+        }
+      }
       return fan;
     }
 
     bool kazoe_flag = true;
-    python::object yaku_config = m_yaku_config.attr("YakuConfig")();
     python::object yaku_list = hand_response.attr("yaku");
     for (long i = 0; i < python::len(yaku_list); ++i) {
       python::object yaku = yaku_list[i];
-      if (yaku == yaku_config.attr("daisangen")) {
+      if (yaku.attr("name") == "Daisangen") {
         kazoe_flag = false;
         break;
       }
-      if (yaku == yaku_config.attr("suuankou")) {
+      if (yaku.attr("name") == "Suu Ankou") {
         kazoe_flag = false;
         break;
       }
-      if (yaku == yaku_config.attr("tsuisou")) {
+      if (yaku.attr("name") == "Tsuu Iisou") {
         kazoe_flag = false;
         break;
       }
-      if (yaku == yaku_config.attr("ryuisou")) {
+      if (yaku.attr("name") == "Ryuuiisou") {
         kazoe_flag = false;
         break;
       }
-      if (yaku == yaku_config.attr("chinroto")) {
+      if (yaku.attr("name") == "Chinroutou") {
         kazoe_flag = false;
         break;
       }
-      if (yaku == yaku_config.attr("shosuushi")) {
+      if (yaku.attr("name") == "Shousuushii") {
         kazoe_flag = false;
         break;
       }
-      if (yaku == yaku_config.attr("suukantsu")) {
+      if (yaku.attr("name") == "Suu Kantsu") {
         kazoe_flag = false;
         break;
       }
-      if (yaku == yaku_config.attr("chuuren_poutou")) {
+      if (yaku.attr("name") == "Chuuren Poutou") {
         kazoe_flag = false;
         break;
       }
-      if (yaku == yaku_config.attr("daburu_chuuren_poutou")) {
+      if (yaku.attr("name") == "Daburu Chuuren Poutou") {
         kazoe_flag = false;
         break;
       }
-      if (yaku == yaku_config.attr("suuankou_tanki")) {
+      if (yaku.attr("name") == "Suu Ankou Tanki") {
         kazoe_flag = false;
         break;
       }
-      if (yaku == yaku_config.attr("daisuushi")) {
+      if (yaku.attr("name") == "Dai Suushii") {
         kazoe_flag = false;
         break;
       }
