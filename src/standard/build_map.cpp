@@ -289,6 +289,15 @@ void createEntry(
     }
   }
 
+  //  0 <= fan <=  63: `fan` は飜数を表す．ただし，和了形が平和形か平和に準じる形
+  //                  （雀頭が東・南・西・北のどれか）である場合，および本役満である場合を除く．
+  // 64 <= fan <= 127: 平和形か平和に準じる形であって本役満ではない場合． `fan - 64` が飜数を表す．
+  // fan = 128: 本役満の場合．
+  // fan = 129: 二倍役満の場合．
+  // fan = 130: 三倍役満の場合．
+  // fan = 131: 四倍役満の場合．
+  // fan = 132: 五倍役満の場合．
+  // fan = 133: 六倍役満の場合．
   std::uint_fast8_t const fan = [&]() -> std::uint_fast8_t {
     python::object fan_ = hand_response.attr("han");
     if (fan_.is_none()) {
@@ -301,10 +310,11 @@ void createEntry(
 
     std::uint_fast8_t const fan = python::extract<long>(fan_);
 
+    // 本役満（数え役満を除く役満）かどうかのフラグ．
     bool const true_yiman_flag = [&]() -> bool {
       python::object yaku_list = hand_response.attr("yaku");
       if (yaku_list.is_none()) {
-        yaku_list = python::list();
+        return false;
       }
       for (long i = 0; i < python::len(yaku_list); ++i) {
         python::object yaku = yaku_list[i];
@@ -345,25 +355,38 @@ void createEntry(
       return false;
     }();
     if (true_yiman_flag) {
-      if (fan % 13u != 0) {
-        dumpEntry(
-          pure_hand, chi_list, peng_list, angang_list, minggang_list, winning_tile, rong, std::cerr);
+      // 本役満（数え役満を除く役満）の場合．
+      //   - fan = 128: 役満
+      //   - fan = 129: 二倍役満
+      //   - fan = 130: 三倍役満
+      //   - fan = 131: 四倍役満
+      //   - fan = 132: 五倍役満
+      //   - fan = 133: 六倍役満
+      if (fan < 13u) {
         throw std::logic_error("A logic error.");
       }
-      return 13u + fan / 13u;
+      if (fan % 13u != 0u) {
+        throw std::logic_error("A logic error.");
+      }
+      return 128u + (fan - 13u) / 13u;
     }
 
-    python::object yaku_list = hand_response.attr("yaku");
-    if (yaku_list.is_none()) {
-      yaku_list = python::list();
-    }
-    for (long i = 0; i < python::len(yaku_list); ++i) {
-      python::object yaku = yaku_list[i];
-      if (yaku.attr("name") == "Pinfu") {
-        return fan + 128u;
+    // 平和形か平和に準じる形（場風・自風を指定していないので，
+    // 雀頭が東・南・西・北のいずれかの場合，常に平和が役として含まれる）である場合を示すフラグ．
+    bool const pinghu = [&]() {
+      python::object yaku_list = hand_response.attr("yaku");
+      if (yaku_list.is_none()) {
+        return false;
       }
-    }
-    return fan;
+      for (long i = 0; i < python::len(yaku_list); ++i) {
+        python::object yaku = yaku_list[i];
+        if (yaku.attr("name") == "Pinfu") {
+          return true;
+        }
+      }
+      return false;
+    }();
+    return pinghu ? (fan + 64u) : fan;
   }();
 
   if (debugging) {
