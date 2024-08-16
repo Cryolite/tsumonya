@@ -13,15 +13,15 @@
 #include <ios>
 #include <algorithm>
 #include <iterator>
-#include <vector>
 #include <string>
+#include <array>
 #include <utility>
+#include <memory>
 #include <stdexcept>
 #include <climits>
 #include <cstdint>
 #include <cstddef>
-
-#include <iostream>
+#include <cassert>
 
 
 namespace Tsumonya{
@@ -68,25 +68,25 @@ inline constexpr Situation yifa(Situation::yifa_);
 inline constexpr Situation tianhu(Situation::tianhu_);
 inline constexpr Situation dihu(Situation::dihu_);
 
-constexpr Situation operator&(Situation lhs, Situation rhs)
+constexpr Situation operator&(Situation const lhs, Situation const rhs)
 {
   return static_cast<Situation>(
     static_cast<std::uint_fast16_t>(lhs) & static_cast<std::uint_fast16_t>(rhs));
 }
 
-constexpr Situation operator|(Situation lhs, Situation rhs)
+constexpr Situation operator|(Situation const lhs, Situation const rhs)
 {
   return static_cast<Situation>(
     static_cast<std::uint_fast16_t>(lhs) | static_cast<std::uint_fast16_t>(rhs));
 }
 
-constexpr Situation &operator&=(Situation &lhs, Situation rhs)
+constexpr Situation &operator&=(Situation &lhs, Situation const rhs)
 {
   lhs = lhs & rhs;
   return lhs;
 }
 
-constexpr Situation &operator|=(Situation &lhs, Situation rhs)
+constexpr Situation &operator|=(Situation &lhs, Situation const rhs)
 {
   lhs = lhs | rhs;
   return lhs;
@@ -98,19 +98,20 @@ private:
   class Impl_
   {
   public:
-    explicit Impl_(
-      std::filesystem::path const &map_path, bool const lian_feng_pai_as_2fu = false)
+    Impl_() = delete;
+
+    Impl_(std::filesystem::path const &map_path, bool const lian_feng_pai_as_2fu)
       : map_()
       , lian_feng_pai_as_2fu_(lian_feng_pai_as_2fu)
     {
       if (!std::filesystem::exists(map_path)) {
         std::ostringstream oss;
-        oss << map_path << ": Does not exist.";
+        oss << map_path.string() << ": Does not exist.";
         throw std::runtime_error(oss.str());
       }
       if (!std::filesystem::is_regular_file(map_path) && !std::filesystem::is_symlink(map_path)) {
         std::ostringstream oss;
-        oss << map_path << ": Not a file.";
+        oss << map_path.string() << ": Not a file.";
         throw std::runtime_error(oss.str());
       }
 
@@ -177,6 +178,28 @@ private:
         return {0u, 0u};
       }
 
+      auto const [fu_base, fan_encode] = map_[hash];
+
+      bool const tianhu_ = static_cast<std::uint_fast16_t>(situation & tianhu) != 0u;
+      bool const dihu_ = static_cast<std::uint_fast16_t>(situation & dihu) != 0u;
+      if (fan_encode >= 128u || tianhu_ || dihu_) {
+        // 本役満（数え役満を除く役満）の場合．
+        if (fan_encode < 128u) {
+          // 天和のみ，もしくは地和のみの場合．
+          assert((tianhu_ || dihu_));
+          return {fu_base, 13u};
+        }
+        assert((fan_encode <= 133u));
+        return {fu_base, 13u + (fan_encode - 128u) * 13u + (tianhu_ || dihu_) ? 13u : 0u};
+      }
+
+      auto const [fan_base, pinghu_flag] = [&]() -> std::pair<std::uint_fast8_t, bool> {
+        if (fan_encode >= 64u) {
+          return {fan_encode - 64u, true};
+        }
+        return {fan_encode, false};
+      }();
+
       std::array<std::uint_fast8_t, 34u> const pure_hand_ = [&]() {
         std::array<std::uint_fast8_t, 34u> pure_hand_(pure_hand);
         ++pure_hand_[winning_tile];
@@ -226,37 +249,41 @@ private:
         return feng_pai_fan;
       }();
 
-      auto const [fu_base, fan_encode] = [&]() -> std::pair<std::uint_fast8_t, std::uint_fast8_t> {
-        auto [fu_base, fan_encode] = map_[hash];
-        if (fan_encode >= 128u) {
-          // 平和の和了形か，もしくはそれに準ずる和了形の場合．
-          fan_encode -= 128u;
-          if (feng_pai_fu == 0u) {
-            // 平和の和了形の場合．
-            return {fu_base, fan_encode};
-          }
-          if (fan_encode >= 14u) {
-            // 数え役満以外の役満の場合．
-            return {fu_base, fan_encode};
-          }
-          if (fan_encode == 0u) {
-            throw std::logic_error("An logic error.");
-          }
-          // 平和の和了形に準じたものであるが，雀頭が風牌である場合．
-          return {fu_base, fan_encode - 1u};
+      std::uint_fast8_t const conditional_fans = [&]() {
+        std::uint_fast8_t conditional_fans = 0u;
+        if (static_cast<std::uint_fast16_t>(situation & liqi) != 0u) {
+          ++conditional_fans;
         }
-        return {fu_base, fan_encode};
+        if (static_cast<std::uint_fast16_t>(situation & qianggang) != 0u) {
+          ++conditional_fans;
+        }
+        if (static_cast<std::uint_fast16_t>(situation & lingshang_kaihua) != 0u) {
+          ++conditional_fans;
+        }
+        if (static_cast<std::uint_fast16_t>(situation & haidi_moyue) != 0u) {
+          ++conditional_fans;
+        }
+        if (static_cast<std::uint_fast16_t>(situation & haidi_laoyue) != 0u) {
+          ++conditional_fans;
+        }
+        if (static_cast<std::uint_fast16_t>(situation & double_liqi) != 0u) {
+          conditional_fans += 2u;
+        }
+        if (static_cast<std::uint_fast16_t>(situation & yifa) != 0u) {
+          ++conditional_fans;
+        }
+        return conditional_fans;
       }();
 
-      std::uint_fast8_t const fu = fu_base + feng_pai_fu;
-      if (fan_encode <= 13u) {
-        std::uint_fast8_t const fan = std::min<std::uint_fast8_t>(fan_encode + feng_pai_fan + num_doras, 13u);
-        std::cout << "fu_base: " << static_cast<unsigned>(fu_base) << ", feng_pai_fu: "
-          << static_cast<unsigned>(feng_pai_fu) << ", fu: " << static_cast<unsigned>(fu) << std::endl;
-        return {fu, fan};
+      std::uint_fast8_t const fan = fan_base + feng_pai_fan + conditional_fans + num_doras;
+
+      if (!pinghu_flag || feng_pai_fu == 0u) {
+        return {fu_base + feng_pai_fu, std::min<std::uint_fast8_t>(fan, 13u)};
       }
-      std::uint_fast8_t const fan = (fan_encode - 13u) * 13u;
-      return {fu, fan};
+
+      assert((fan >= 1u));
+      // 平和に準じる和了形ではあるが，雀頭が風牌であるため役から平和を除外する．
+      return {fu_base + feng_pai_fu, std::min<std::uint_fast8_t>(fan - 1u, 13u)};
     }
 
   private:
@@ -265,6 +292,8 @@ private:
   }; // class Impl_
 
 public:
+  Calculator() = delete;
+
   explicit Calculator(char const * const map_path, bool const lian_feng_pai_as_2fu = false)
     : Calculator(std::filesystem::path(map_path), lian_feng_pai_as_2fu)
   {}
@@ -277,6 +306,20 @@ public:
     std::filesystem::path const &map_path, bool const lian_feng_pai_as_2fu = false)
     : p_impl_(std::make_shared<Impl_>(map_path, lian_feng_pai_as_2fu))
   {}
+
+  Calculator(Calculator const &) = default;
+
+  Calculator(Calculator &&rhs)
+    : p_impl_(rhs.p_impl_)
+  {}
+
+  Calculator &operator=(Calculator const &) = default;
+
+  Calculator &operator=(Calculator &&rhs)
+  {
+    p_impl_ = rhs.p_impl_;
+    return *this;
+  }
 
   template<
     typename PureHandIterator,
@@ -303,42 +346,54 @@ public:
   {
     // Check whether `round_wind` is valid.
     if (round_wind != east && round_wind != south && round_wind != west && round_wind != north) {
-      throw std::invalid_argument("An invalid argument.");
+      throw std::invalid_argument("An invalid `round_wind`.");
     }
 
     // Check whether `player_wind` is valid.
     if (player_wind != east && player_wind != south && player_wind != west && player_wind != north) {
-      throw std::invalid_argument("An invalid argument.");
+      throw std::invalid_argument("An invalid `player_wind`.");
     }
 
-    std::array<std::uint_fast8_t, 34u> pure_hand = [&]() -> std::array<std::uint_fast8_t, 34u> {
+    std::array<std::uint_fast8_t, 34u> pure_hand = [&]() {
       // Check whether `[pure_hand_first, pure_hand_last)` is valid.
       std::array<std::uint_fast8_t, 34u> pure_hand;
       std::uint_fast8_t i = 0u;
       std::uint_fast8_t n = 0u;
       while (pure_hand_first != pure_hand_last) {
         if (i >= 34u) {
-          throw std::invalid_argument("An invalid pure hand.");
+          throw std::invalid_argument(
+            "An invalid pure hand: `std::distance(pure_hand_first, pure_hand_last)` exceeds 34.");
         }
         long long const num_tiles = *pure_hand_first++;
         if (num_tiles < 0) {
-          throw std::invalid_argument("An invalid pure hand.");
+          std::ostringstream oss;
+          oss << "An invalid pure hand: A negative number of tiles (`"
+            << num_tiles << "`) at `" << static_cast<unsigned>(i) << "`.";
+          throw std::invalid_argument(oss.str());
         }
         if (num_tiles > 4) {
-          throw std::invalid_argument("An invalid pure hand.");
+          std::ostringstream oss;
+          oss << "An invalid pure hand: The number of tiles at `" << static_cast<unsigned>(i)
+            << "` exceeds 4 (`" << static_cast<unsigned>(num_tiles) << "`).";
+          throw std::invalid_argument(oss.str());
         }
         pure_hand[i] = static_cast<std::uint_fast8_t>(num_tiles);
         n += num_tiles;
         if (n > 14u) {
-          throw std::invalid_argument("An invalid pure hand.");
+          throw std::invalid_argument(
+            "An invalid pure hand: The total number of tiles exceeds 14.");
         }
         ++i;
       }
       if (i != 34u) {
-        throw std::invalid_argument("An invalid pure hand.");
+        std::ostringstream oss;
+        oss << "An invalid pure hand: `std::distance(pure_hand_first, pure_hand_last)` is `"
+          << static_cast<unsigned>(i) << "`.";
+        throw std::invalid_argument(oss.str());
       }
       if (n % 3u != 1u) {
-        throw std::invalid_argument("An invalid pure hand.");
+        throw std::invalid_argument(
+          "An invalid pure hand: The total number of tiles in the pure hand is not 1 mod 3.");
       }
       return pure_hand;
     }();
@@ -350,27 +405,40 @@ public:
       std::uint_fast8_t n = 0u;
       while (chi_list_first != chi_list_last) {
         if (i >= 21u) {
-          throw std::invalid_argument("An invalid chi list.");
+          throw std::invalid_argument(
+            "An invalid chi list: `std::distance(chi_list_first, chi_list_last)` exceeds 21.");
         }
         long long const num_chi = *chi_list_first++;
         if (num_chi < 0) {
-          throw std::invalid_argument("An invalid chi list.");
+          std::ostringstream oss;
+          oss << "An invalid chi list: A negative number of chi (`"
+            << num_chi << "`) at `" << static_cast<unsigned>(i) << "`.";
+          throw std::invalid_argument(oss.str());
         }
         if (num_chi > 4) {
-          throw std::invalid_argument("An invalid chi list.");
+          std::ostringstream oss;
+          oss << "An invalid chi list: The number of chi at `" << static_cast<unsigned>(i)
+            << "` exceeds 4 (`" << static_cast<unsigned>(num_chi) << "`).";
+          throw std::invalid_argument(oss.str());
         }
         chi_list[i] = static_cast<std::uint_fast8_t>(num_chi);
         n += num_chi;
         if (n > 4u) {
-          throw std::invalid_argument("An invalid chi list.");
+          throw std::invalid_argument("An invalid chi list: The total number of chi exceeds 4.");
         }
         ++i;
       }
       if (i != 21u) {
-        throw std::invalid_argument("An invalid chi list.");
+        std::ostringstream oss;
+        oss << "An invalid chi list: `std::distance(chi_list_first, chi_list_last)` is `"
+          << static_cast<unsigned>(i) << "`.";
+        throw std::invalid_argument(oss.str());
       }
       if (n > 4u) {
-        throw std::invalid_argument("An invalid chi list.");
+        std::ostringstream oss;
+        oss << "An invalid chi list: The total number of chi exceeds 4 (`"
+          << static_cast<unsigned>(n) << "`).";
+        throw std::invalid_argument(oss.str());
       }
       return chi_list;
     }();
@@ -382,27 +450,40 @@ public:
       std::uint_fast8_t n = 0u;
       while (peng_list_first != peng_list_last) {
         if (i >= 34u) {
-          throw std::invalid_argument("An invalid peng list.");
+          throw std::invalid_argument(
+            "An invalid peng list: `std::distance(peng_list_first, peng_list_last)` exceeds 34.");
         }
         long long const num_peng = *peng_list_first++;
         if (num_peng < 0) {
-          throw std::invalid_argument("An invalid peng list.");
+          std::ostringstream oss;
+          oss << "An invalid peng list: A negative number of peng (`"
+            << num_peng << "`) at `" << static_cast<unsigned>(i) << "`.";
+          throw std::invalid_argument(oss.str());
         }
         if (num_peng > 1) {
-          throw std::invalid_argument("An invalid peng list.");
+          std::ostringstream oss;
+          oss << "An invalid peng list: The number of peng at `" << static_cast<unsigned>(i)
+            << "` exceeds 1 (`" << static_cast<unsigned>(num_peng) << "`).";
+          throw std::invalid_argument(oss.str());
         }
         peng_list[i] = static_cast<std::uint_fast8_t>(num_peng);
         n += num_peng;
         if (n > 4u) {
-          throw std::invalid_argument("An invalid peng list.");
+          throw std::invalid_argument("An invalid peng list: The total number of peng exceeds 4.");
         }
         ++i;
       }
       if (i != 34u) {
-        throw std::invalid_argument("An invalid peng list.");
+        std::ostringstream oss;
+        oss << "An invalid peng list: `std::distance(peng_list_first, peng_list_last)` is `"
+          << static_cast<unsigned>(i) << "`.";
+        throw std::invalid_argument(oss.str());
       }
       if (n > 4u) {
-        throw std::invalid_argument("An invalid peng list.");
+        std::ostringstream oss;
+        oss << "An invalid peng list: The total number of peng exceeds 4 (`"
+          << static_cast<unsigned>(n) << "`).";
+        throw std::invalid_argument(oss.str());
       }
       return peng_list;
     }();
@@ -414,27 +495,42 @@ public:
       std::uint_fast8_t n = 0u;
       while (angang_list_first != angang_list_last) {
         if (i >= 34u) {
-          throw std::invalid_argument("An invalid angang list.");
+          throw std::invalid_argument(
+            "An invalid angang list: `std::distance(angang_list_first, angang_list_last)` "
+            "exceeds 34.");
         }
         long long const num_angang = *angang_list_first++;
         if (num_angang < 0) {
-          throw std::invalid_argument("An invalid angang list.");
+          std::ostringstream oss;
+          oss << "An invalid angang list: A negative number of angang (`"
+            << num_angang << "`) at `" << static_cast<unsigned>(i) << "`.";
+          throw std::invalid_argument(oss.str());
         }
         if (num_angang > 1) {
-          throw std::invalid_argument("An invalid angang list.");
+          std::ostringstream oss;
+          oss << "An invalid angang list: The number of angang at `" << static_cast<unsigned>(i)
+            << "` exceeds 1 (`" << static_cast<unsigned>(num_angang) << "`).";
+          throw std::invalid_argument(oss.str());
         }
         angang_list[i] = static_cast<std::uint_fast8_t>(num_angang);
         n += num_angang;
         if (n > 4u) {
-          throw std::invalid_argument("An invalid angang list.");
+          throw std::invalid_argument(
+            "An invalid angang list: The total number of angang exceeds 4.");
         }
         ++i;
       }
       if (i != 34u) {
-        throw std::invalid_argument("An invalid angang list.");
+        std::ostringstream oss;
+        oss << "An invalid angang list: `std::distance(angang_list_first, angang_list_last)` is `"
+          << static_cast<unsigned>(i) << "`.";
+        throw std::invalid_argument(oss.str());
       }
       if (n > 4u) {
-        throw std::invalid_argument("An invalid angang list.");
+        std::ostringstream oss;
+        oss << "An invalid angang list: The total number of angang exceeds 4 (`"
+          << static_cast<unsigned>(n) << "`).";
+        throw std::invalid_argument(oss.str());
       }
       return angang_list;
     }();
@@ -446,27 +542,43 @@ public:
       std::uint_fast8_t n = 0u;
       while (minggang_list_first != minggang_list_last) {
         if (i >= 34u) {
-          throw std::invalid_argument("An invalid minggang list.");
+          throw std::invalid_argument(
+            "An invalid minggang list: `std::distance(minggang_list_first, minggang_list_last)` "
+            "exceeds 34.");
         }
         long long const num_minggang = *minggang_list_first++;
         if (num_minggang < 0) {
-          throw std::invalid_argument("An invalid minggang list.");
+          std::ostringstream oss;
+          oss << "An invalid minggang list: A negative number of minggang (`"
+            << num_minggang << "`) at `" << static_cast<unsigned>(i) << "`.";
+          throw std::invalid_argument(oss.str());
         }
         if (num_minggang > 1) {
-          throw std::invalid_argument("An invalid minggang list.");
+          std::ostringstream oss;
+          oss << "An invalid minggang list: The number of minggang at `"
+            << static_cast<unsigned>(i) << "` exceeds 1 (`" << static_cast<unsigned>(num_minggang)
+            << "`).";
+          throw std::invalid_argument(oss.str());
         }
         minggang_list[i] = static_cast<std::uint_fast8_t>(num_minggang);
         n += num_minggang;
         if (n > 4u) {
-          throw std::invalid_argument("An invalid minggang list.");
+          throw std::invalid_argument(
+            "An invalid minggang list: The total number of minggang exceeds 4.");
         }
         ++i;
       }
       if (i != 34u) {
-        throw std::invalid_argument("An invalid minggang list.");
+        std::ostringstream oss;
+        oss << "An invalid minggang list: `std::distance(minggang_list_first, minggang_list_last)`"
+          " is `" << static_cast<unsigned>(i) << "`.";
+        throw std::invalid_argument(oss.str());
       }
       if (n > 4u) {
-        throw std::invalid_argument("An invalid minggang list.");
+        std::ostringstream oss;
+        oss << "An invalid minggang list: The total number of minggang exceeds 4 (`"
+          << static_cast<unsigned>(n) << "`).";
+        throw std::invalid_argument(oss.str());
       }
       return minggang_list;
     }();
@@ -475,6 +587,7 @@ public:
       // Check whether the hand is valid.
       std::uint_fast8_t a = 0u;
       std::uint_fast8_t b = 0u;
+      std::uint_fast8_t n = 0u;
       for (std::uint_fast8_t i = 0u; i < 34u; ++i) {
         std::uint_fast8_t const color = i / 9u;
         std::uint_fast8_t const number = color != 3u ? i % 9u : UINT_FAST8_MAX;
@@ -486,21 +599,29 @@ public:
         std::uint_fast8_t const num_chi = chi_index != UINT_FAST8_MAX ? chi_list[chi_index] : 0u;
         if (std::uint_fast8_t const num_tiles = a + pure_hand[i] + num_chi + 3u * peng_list[i] + 4u * angang_list[i] + 4u * minggang_list[i]; num_tiles > 4u) {
           std::ostringstream oss;
-          oss << "An invalid hand: The number of the tile `" << static_cast<unsigned>(i)
+          oss << "An invalid hand: The number of tile `" << static_cast<unsigned>(i)
             << "` exceeds 4 (" << static_cast<unsigned>(num_tiles) << ").";
           throw std::invalid_argument(oss.str());
         }
+        n += a + pure_hand[i] + num_chi + 3u * peng_list[i] + 3u * angang_list[i] + 3u * minggang_list[i];
         a = b + num_chi;
         b = num_chi;
+      }
+      if (n != 13u) {
+        throw std::invalid_argument("An invalid hand.");
       }
     }
 
     // Check whether `winning_tile` is valid.
     if (winning_tile >= 34u) {
-      throw std::invalid_argument("An invalid winning tile.");
+      std::ostringstream oss;
+      oss << "An invalid winning tile: `" << static_cast<unsigned>(winning_tile) << "`.";
+      throw std::invalid_argument(oss.str());
     }
     if (pure_hand[winning_tile] == 4u) {
-      throw std::invalid_argument("An invalid winning tile.");
+      throw std::invalid_argument(
+        "An invalid winning tile: `[pure_hand_first, pure_hand_last)` "
+        "must not contain the winning tile.");
     }
 
     {
