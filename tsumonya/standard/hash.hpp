@@ -2,30 +2,30 @@
 // SPDX-License-Identifier: MIT
 // This file is part of https://github.com/Cryolite/tsumonya
 
+#if !defined(TSUMONYA_STANDARD_HASH_HPP_INCLUDE_GUARD)
+#define TSUMONYA_STANDARD_HASH_HPP_INCLUDE_GUARD
+
 #include <tsumonya/standard/table.hpp>
 #include <tsumonya/standard/core.hpp>
 #include <iterator>
 #include <array>
 #include <tuple>
-#include <stdexcept>
+#include <climits>
 #include <cstdint>
 #include <cassert>
 
 
 namespace Tsumonya::Standard_{
 
-using Hand_ = std::array<std::uint_fast8_t, 34u>;
-using ChiList_ = std::array<std::uint_fast8_t, 21u>;
-using PengGangList_ = std::array<std::uint_fast8_t, 34u>;
 using StateSeq_ = std::array<std::array<std::uint_fast8_t, 8u>, 34u>;
 
 inline std::tuple<std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t> encodeShupai_(
   std::uint_fast8_t const color,
-  Hand_ const &hand,
-  ChiList_ const &chi_list,
-  PengGangList_ const &peng_list,
-  PengGangList_ const &angang_list,
-  PengGangList_ const &minggang_list,
+  std::array<std::uint_fast8_t, 34u> const &pure_hand,
+  std::array<std::uint_fast8_t, 21u> const &chi_list,
+  std::array<std::uint_fast8_t, 34u> const &peng_list,
+  std::array<std::uint_fast8_t, 34u> const &angang_list,
+  std::array<std::uint_fast8_t, 34u> const &minggang_list,
   std::uint_fast8_t const winning_tile,
   bool const rong,
   std::uint_fast8_t const head,
@@ -34,10 +34,14 @@ inline std::tuple<std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t> encod
   std::uint_fast8_t w,
   StateSeq_ &state_seq)
 {
+  assert((color <= 2u));
+  assert((winning_tile < 34u));
+  assert((head < 34u || head == UINT_FAST8_MAX));
+
   std::uint_fast8_t x = 0u;
   std::uint_fast8_t y = 0u;
-  std::uint_fast8_t a = hand[color * 9u + 0u];
-  std::uint_fast8_t b = hand[color * 9u + 1u];
+  std::uint_fast8_t a = pure_hand[color * 9u + 0u];
+  std::uint_fast8_t b = pure_hand[color * 9u + 1u];
   for (std::uint_fast8_t i = color * 9u; i < (color + 1u) * 9u; ++i) {
     assert((m <= 4u));
     assert((h <= 1u));
@@ -73,7 +77,7 @@ inline std::tuple<std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t> encod
         // The number of winning tiles must not exceed 1.
         continue;
       }
-      if (stable[ss][2u] >= 1u && hand[i] == 0u) {
+      if (stable[ss][2u] >= 1u && pure_hand[i] == 0u) {
         // If the winning tile is `i`, then tile `i` must exist in the pure hand.
         continue;
       }
@@ -82,12 +86,12 @@ inline std::tuple<std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t> encod
         continue;
       }
       if (ptable[ss] != a) {
-        // The count of tile i must be exact for a winning hand.
+        // The count of tile `i` must be exact for a winning hand.
         continue;
       }
-      if (number < 7u && stable[ss][7u] > hand[i + 2u]) {
-        // The count of tile `i + 2` in the pure hand must be greater than or equal to the number of
-        // concealed three-in-a-row starting with tile `i`.
+      if (number < 7u && stable[ss][7u] > pure_hand[i + 2u]) {
+        // The count of tile `i + 2` in the pure hand must be greater than or equal to the number
+        // of concealed three-in-a-row starting with tile `i`.
         continue;
       }
       if (stable[ss][7u] > b) {
@@ -118,18 +122,19 @@ inline std::tuple<std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t> encod
       break;
     }
     if (s == UINT_FAST8_MAX) {
-      return { UINT_FAST8_MAX, UINT_FAST8_MAX, UINT_FAST8_MAX };
+      return {UINT_FAST8_MAX, UINT_FAST8_MAX, UINT_FAST8_MAX};
     }
 
+    std::uint_fast8_t const aa = pure_hand[i] > a ? 1u : 0u;
+    std::uint_fast8_t const bb = (i + 1u < (color + 1u) * 9u && pure_hand[i + 1u] > b) ? 1u : 0u;
     state_seq[i] = {
       m,
       h,
       w,
       x,
       y,
-      hand[i] >= a + 1u ? static_cast<std::uint_fast8_t>(1u) : static_cast<std::uint_fast8_t>(0u),
-      (i + 1u < (color + 1u) * 9u && hand[i + 1u] >= b + 1u) ? static_cast<std::uint_fast8_t>(1u)
-                                                             : static_cast<std::uint_fast8_t>(0u),
+      aa,
+      bb,
       s
     };
 
@@ -139,17 +144,17 @@ inline std::tuple<std::uint_fast8_t, std::uint_fast8_t, std::uint_fast8_t> encod
     x = number < 7u ? y + xytable[s] : y;
     y = number < 7u ? xytable[s] : 0u;
     a = b - stable[s][7u];
-    b = number < 7u ? hand[i + 2u] - stable[s][7u] : 0u;
+    b = number < 7u ? pure_hand[i + 2u] - stable[s][7u] : 0u;
   }
 
-  return { m, h, w };
+  return {m, h, w};
 }
 
 inline bool encodeZipai_(
-  Hand_ const &hand,
-  PengGangList_ const &peng_list,
-  PengGangList_ const &angang_list,
-  PengGangList_ const &minggang_list,
+  std::array<std::uint_fast8_t, 34u> const &pure_hand,
+  std::array<std::uint_fast8_t, 34u> const &peng_list,
+  std::array<std::uint_fast8_t, 34u> const &angang_list,
+  std::array<std::uint_fast8_t, 34u> const &minggang_list,
   std::uint_fast8_t const winning_tile,
   bool const rong,
   std::uint_fast8_t m,
@@ -157,6 +162,8 @@ inline bool encodeZipai_(
   std::uint_fast8_t w,
   StateSeq_ &state_seq)
 {
+  assert((winning_tile < 34u));
+
   for (std::uint_fast8_t i = 27u; i < 34u; ++i) {
     assert((m <= 4u));
     assert((h <= 1u));
@@ -168,7 +175,7 @@ inline bool encodeZipai_(
         // The number of members (menzi, 面子) must not exceed 4.
         continue;
       }
-      if ((hand[i] == 2u) != (stable[ss][3u] == 1u)) {
+      if ((pure_hand[i] == 2u) != (stable[ss][3u] == 1u)) {
         // The number of tile `i` is equal to 2, then it must be the head (雀頭).
         continue;
       }
@@ -184,8 +191,8 @@ inline bool encodeZipai_(
           // The number of winning tiles must not exceed 1.
           continue;
       }
-      if (stable[ss][2u] >= 1u && hand[i] == 0u) {
-        // If the winning tile is `i`, then tile `i` must exist in the hand.
+      if (stable[ss][2u] >= 1u && pure_hand[i] == 0u) {
+        // If the winning tile is `i`, then tile `i` must exist in the pure hand.
         continue;
       }
       if (stable[ss][2u] >= 1u && rong != (stable[ss][2u] == 2u)) {
@@ -197,7 +204,7 @@ inline bool encodeZipai_(
         continue;
       }
       assert((stable[ss][7u] == 0u));
-      if (ptable[ss] != hand[i]) {
+      if (ptable[ss] != pure_hand[i]) {
         continue;
       }
       if (peng_list[i] != stable[ss][4u]) {
@@ -220,7 +227,7 @@ inline bool encodeZipai_(
       return false;
     }
 
-    state_seq[i] = { m, h, w, 0u, 0u, 0u, 0u, s };
+    state_seq[i] = {m, h, w, 0u, 0u, 0u, 0u, s};
 
     m += mtable[s];
     h += stable[s][3u];
@@ -241,17 +248,17 @@ inline std::uint_fast64_t encodeStateSeq_(StateSeq_ const &state_seq)
 }
 
 inline std::uint_fast64_t getHash_(
-  Hand_ const &hand,
-  ChiList_ const &chi_list,
-  PengGangList_ const &peng_list,
-  PengGangList_ const &angang_list,
-  PengGangList_ const &minggang_list,
+  std::array<std::uint_fast8_t, 34u> const &pure_hand,
+  std::array<std::uint_fast8_t, 21u> const &chi_list,
+  std::array<std::uint_fast8_t, 34u> const &peng_list,
+  std::array<std::uint_fast8_t, 34u> const &angang_list,
+  std::array<std::uint_fast8_t, 34u> const &minggang_list,
   std::uint_fast8_t const winning_tile,
-  bool rong)
+  bool const rong)
 {
   {
-    // Check whether `(hand, chi_list, peng_list, angang_list, minggang_list)` represents a valid
-    // hand.
+    // Check whether `(pure_hand, chi_list, peng_list, angang_list, minggang_list)` represents a
+    // valid hand.
     std::uint_fast8_t x = 0u;
     std::uint_fast8_t y = 0u;
     std::uint_fast8_t total = 0u;
@@ -262,25 +269,21 @@ inline std::uint_fast64_t getHash_(
         = color <= 2u && number <= 6u ? color * 7u + number : UINT_FAST8_MAX;
       std::uint_fast8_t const cnum = cindex != UINT_FAST8_MAX ? chi_list[cindex] : 0u;
       std::uint_fast8_t const n
-        = x + hand[i] + peng_list[i] * 3u + cnum + angang_list[i] * 4u + minggang_list[i] * 4u;
-      if (n > 4u) {
-        throw std::invalid_argument("An invalid hand.");
-      }
-      total += x + hand[i] + peng_list[i] * 3u + cnum + angang_list[i] * 3u + minggang_list[i] * 3u;
+        = x + pure_hand[i] + peng_list[i] * 3u + cnum + angang_list[i] * 4u + minggang_list[i] * 4u;
+      assert((n <= 4u));
+      total += x + pure_hand[i] + peng_list[i] * 3u + cnum + angang_list[i] * 3u + minggang_list[i] * 3u;
       x = y + cnum;
       y = cnum;
     }
     assert((x == 0u));
     assert((y == 0u));
-    if (total != 14u) {
-      throw std::invalid_argument("An invalid hand.");
-    }
+    assert((total == 14u));
   }
 
-  std::array<std::uint_fast8_t, 3u> t = { 0u, 0u, 0u };
+  std::array<std::uint_fast8_t, 3u> t = {0u, 0u, 0u};
   for (std::uint_fast8_t color = 0u; color < 3u; ++color) {
     for (std::uint_fast8_t number = 0u; number < 9u; ++number) {
-      t[color] += number * hand[color * 9u + number];
+      t[color] += number * pure_hand[color * 9u + number];
     }
   }
 
@@ -292,7 +295,7 @@ inline std::uint_fast64_t getHash_(
   for (std::uint_fast8_t color = 0u; color < 3u; ++color) {
     auto [m_, h_, w_] = encodeShupai_(
       color,
-      hand,
+      pure_hand,
       chi_list,
       peng_list,
       angang_list,
@@ -315,12 +318,12 @@ inline std::uint_fast64_t getHash_(
       assert((h_ == UINT_FAST8_MAX));
       assert((w_ == UINT_FAST8_MAX));
       for (std::uint_fast8_t j = (t[color] * 2u) % 3u; j < 9u; j += 3u) {
-        if (hand[color * 9u + j] < 2u) {
+        if (pure_hand[color * 9u + j] < 2u) {
           continue;
         }
         std::tie(m_, h_, w_) = encodeShupai_(
           color,
-          hand,
+          pure_hand,
           chi_list,
           peng_list,
           angang_list,
@@ -350,7 +353,7 @@ inline std::uint_fast64_t getHash_(
     }
   }
 
-  if (!encodeZipai_(hand, peng_list, angang_list, minggang_list, winning_tile, rong, m, h, w, state_seq)) {
+  if (!encodeZipai_(pure_hand, peng_list, angang_list, minggang_list, winning_tile, rong, m, h, w, state_seq)) {
     return UINT_FAST64_MAX;
   }
 
@@ -359,159 +362,132 @@ inline std::uint_fast64_t getHash_(
 }
 
 template<
-  typename HandIterator,
-  typename ChiIterator,
-  typename PengIterator,
-  typename AngangIterator,
-  typename MinggangIterator>
+  typename PureHandIterator,
+  typename ChiListIterator,
+  typename PengListIterator,
+  typename AngangListIterator,
+  typename MinggangListIterator>
 std::uint_fast64_t getHash(
-  HandIterator hand_first,
-  HandIterator hand_last,
-  ChiIterator chi_first,
-  ChiIterator chi_last,
-  PengIterator peng_first,
-  PengIterator peng_last,
-  AngangIterator angang_first,
-  AngangIterator angang_last,
-  MinggangIterator minggang_first,
-  MinggangIterator minggang_last,
+  PureHandIterator pure_hand_first,
+  PureHandIterator pure_hand_last,
+  ChiListIterator chi_list_first,
+  ChiListIterator chi_list_last,
+  PengListIterator peng_list_first,
+  PengListIterator peng_list_last,
+  AngangListIterator angang_list_first,
+  AngangListIterator angang_list_last,
+  MinggangListIterator minggang_list_first,
+  MinggangListIterator minggang_list_last,
   std::uint_fast8_t winning_tile,
   bool rong)
 {
-  Hand_ hand;
-  hand.fill(0u);
-  {
-    // Check whether `[hand_first, hand_last)` represents a valid pure hand.
+  std::array<std::uint_fast8_t, 34u> pure_hand = [&]() {
+    // Check whether `[pure_hand_first, pure_hand_last)` represents a valid pure hand.
+    std::array<std::uint_fast8_t, 34u> pure_hand;
     std::uint_fast8_t i = 0u;
     std::uint_fast8_t n = 0u;
-    for (HandIterator iter = hand_first; iter != hand_last;) {
-      if (i >= 34u) {
-        throw std::invalid_argument("An invalid hand.");
-      }
-      if (n > 14u) {
-        throw std::invalid_argument("An invalid hand.");
-      }
-      hand[i] = *iter++;
-      if (hand[i] > 4) {
-        throw std::invalid_argument("An invalid hand.");
-      }
-      n += hand[i];
+    for (PureHandIterator iter = pure_hand_first; iter != pure_hand_last;) {
+      assert((i < 34u));
+      pure_hand[i] = *iter++;
+      assert((pure_hand[i] <= 4));
+      n += pure_hand[i];
+      assert((n <= 13u));
       ++i;
     }
-    if (i != 34u) {
-      throw std::invalid_argument("An invalid hand.");
-    }
-    if (n % 3u != 1u) {
-      throw std::invalid_argument("An invalid hand.");    
-    }
-  }
+    assert((i == 34u));
+    assert((n % 3u == 1u));
+    return pure_hand;
+  }();
 
-  ChiList_ chi_list;
-  chi_list.fill(0u);
-  {
-    // Check whether `[chi_first, chi_list)` represents a valid chi list.
+  std::array<std::uint_fast8_t, 21u> chi_list = [&]() {
+    // Check whether `[chi_list_first, chi_list_last)` represents a valid chi list.
+    std::array<std::uint_fast8_t, 21u> chi_list;
     std::uint_fast8_t i = 0u;
-    for (ChiIterator iter = chi_first; iter != chi_last;) {
-      if (i >= 21u) {
-        throw std::invalid_argument("An invalid chi list.");
-      }
+    std::uint_fast8_t m = 0u;
+    for (ChiListIterator iter = chi_list_first; iter != chi_list_last;) {
+      assert((i < 21u));
       chi_list[i] = *iter++;
-      if (chi_list[i] > 4) {
-        throw std::invalid_argument("An invalid chi list.");
-      }
+      assert((chi_list[i] <= 4));
+      m += chi_list[i];
+      assert((m <= 4u));
       ++i;
     }
-    if (i != 21u) {
-      throw std::invalid_argument("An invalid chi list.");
-    }
-  }
+    assert((i == 21u));
+    return chi_list;
+  }();
 
-  PengGangList_ peng_list;
-  peng_list.fill(0u);
-  {
-    // Check whether `[peng_first, peng_list)` represents a valid peng list.
+  std::array<std::uint_fast8_t, 34u> peng_list = [&]() {
+    // Check whether `[peng_list_first, peng_list_last)` represents a valid peng list.
+    std::array<std::uint_fast8_t, 34u> peng_list;
     std::uint_fast8_t i = 0u;
-    for (PengIterator iter = peng_first; iter != peng_last;) {
-      if (i >= 34u) {
-        throw std::invalid_argument("An invalid peng list.");
-      }
+    std::uint_fast8_t m = 0u;
+    for (PengListIterator iter = peng_list_first; iter != peng_list_last;) {
+      assert((i < 34u));
       peng_list[i] = *iter++;
-      if (peng_list[i] > 1) {
-        throw std::invalid_argument("An invalid peng list.");
-      }
+      assert((peng_list[i] <= 1));
+      m += peng_list[i];
+      assert((m <= 4u));
       ++i;
     }
-    if (i != 34u) {
-      throw std::invalid_argument("An invalid peng list.");
-    }
-  }
+    assert((i == 34u));
+    return peng_list;
+  }();
 
-  PengGangList_ angang_list;
-  angang_list.fill(0u);
-  {
-    // Check whether `[angang_first, angang_list)` represents a valid angang list.
+  std::array<std::uint_fast8_t, 34u> angang_list = [&]() {
+    // Check whether `[angang_list_first, angang_list_last)` represents a valid angang list.
+    std::array<std::uint_fast8_t, 34u> angang_list;
     std::uint_fast8_t i = 0u;
-    for (AngangIterator iter = angang_first; iter != angang_last;) {
-      if (i >= 34u) {
-        throw std::invalid_argument("An invalid angang list.");
-      }
+    std::uint_fast8_t m = 0u;
+    for (AngangListIterator iter = angang_list_first; iter != angang_list_last;) {
+      assert((i < 34u));
       angang_list[i] = *iter++;
-      if (angang_list[i] > 1) {
-        throw std::invalid_argument("An invalid angang list.");
-      }
+      assert((angang_list[i] <= 1));
+      m += angang_list[i];
+      assert((m <= 4u));
       ++i;
     }
-    if (i != 34u) {
-      throw std::invalid_argument("An invalid angang list.");
-    }
-  }
+    assert((i == 34u));
+    return angang_list;
+  }();
 
-  PengGangList_ minggang_list;
-  minggang_list.fill(0u);
-  {
-    // Check whether `[minggang_first, minggang_list)` represents a valid minggang list.
+  std::array<std::uint_fast8_t, 34u> minggang_list = [&]() {
+    // Check whether `[minggang_list_first, minggang_list)` represents a valid minggang list.
+    std::array<std::uint_fast8_t, 34u> minggang_list;
     std::uint_fast8_t i = 0u;
-    for (MinggangIterator iter = minggang_first; iter != minggang_last;) {
-      if (i >= 34u) {
-        throw std::invalid_argument("An invalid minggang list.");
-      }
+    std::uint_fast8_t m = 0u;
+    for (MinggangListIterator iter = minggang_list_first; iter != minggang_list_last;) {
+      assert((i < 34u));
       minggang_list[i] = *iter++;
-      if (minggang_list[i] > 1) {
-        throw std::invalid_argument("An invalid minggang list.");
-      }
+      assert((minggang_list[i] <= 1));
+      m += minggang_list[i];
+      assert((m <= 4u));
       ++i;
     }
-    if (i != 34u) {
-      throw std::invalid_argument("An invalid minggang list.");
-    }
-  }
+    assert((i == 34u));
+    return minggang_list;
+  }();
 
-  if (winning_tile >= 34u) {
-    throw std::invalid_argument("An invalid winning tile.");
-  }
+  assert((winning_tile < 34u));
+  ++pure_hand[winning_tile];
+  assert((pure_hand[winning_tile] <= 4));
 
-  ++hand[winning_tile];
-  if (hand[winning_tile] > 4) {
-    throw std::invalid_argument("An invalid hand.");
-  }
-
-  return getHash_(hand, chi_list, peng_list, angang_list, minggang_list, winning_tile, rong);
+  return getHash_(pure_hand, chi_list, peng_list, angang_list, minggang_list, winning_tile, rong);
 }
 
 template<
-  typename HandRange,
-  typename ChiRange,
-  typename PengRange,
-  typename AngangRange,
-  typename MinggangRange>
+  typename PureHand,
+  typename ChiList,
+  typename PengList,
+  typename AngangList,
+  typename MinggangList>
 std::uint_fast64_t getHash(
-  HandRange const &hand,
-  ChiRange const &chi_list,
-  PengRange const &peng_list,
-  AngangRange const &angang_list,
-  MinggangRange const &minggang_list,
-  std::uint_fast8_t winning_tile,
-  bool rong)
+  PureHand const &hand,
+  ChiList const &chi_list,
+  PengList const &peng_list,
+  AngangList const &angang_list,
+  MinggangList const &minggang_list,
+  std::uint_fast8_t const winning_tile,
+  bool const rong)
 {
   return getHash(
     std::cbegin(hand),
@@ -529,3 +505,5 @@ std::uint_fast64_t getHash(
 }
 
 } // namespace Tsumonya::Standard_
+
+#endif // !defined(TSUMONYA_STANDARD_HASH_HPP_INCLUDE_GUARD)
