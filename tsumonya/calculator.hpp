@@ -5,7 +5,11 @@
 #if !defined(TSUMONYA_CALCULATOR_HPP_INCLUDE_GUARD)
 #define TSUMONYA_CALCULATOR_HPP_INCLUDE_GUARD
 
+#include "seven_pairs/hash.hpp"
+#include "seven_pairs/table.hpp"
+#include "seven_pairs/core.hpp"
 #include "standard/hash.hpp"
+#include "standard/table.hpp"
 #include "standard/core.hpp"
 #include <filesystem>
 #include <fstream>
@@ -101,7 +105,8 @@ private:
     Impl_() = delete;
 
     Impl_(std::filesystem::path const &map_path, bool const lian_feng_pai_as_2fu)
-      : map_()
+      : standard_map_()
+      , seven_pairs_map_()
       , lian_feng_pai_as_2fu_(lian_feng_pai_as_2fu)
     {
       if (!std::filesystem::exists(map_path)) {
@@ -117,9 +122,15 @@ private:
 
       using MapValue = Tsumonya::Standard_::Map::value_type;
 
-      {
-        std::size_t const map_size = std::filesystem::file_size(map_path);
-        map_.resize(map_size / sizeof(MapValue));
+      if (std::filesystem::file_size(map_path) % sizeof(MapValue) != 0u) {
+        std::ostringstream oss;
+        oss << map_path.string() << ": An invalid file size.";
+        throw std::runtime_error(oss.str());
+      }
+      if (std::filesystem::file_size(map_path) / sizeof(MapValue) != Tsumonya::Standard_::upper_bound + Tsumonya::SevenPairs_::size) {
+        std::ostringstream oss;
+        oss << map_path.string() << ": An invalid file size.";
+        throw std::runtime_error(oss.str());
       }
 
       std::ifstream ifs(map_path, std::ios::in | std::ios::binary);
@@ -128,13 +139,26 @@ private:
         oss << map_path.string() << ": Failed to open.";
         throw std::runtime_error(oss.str());
       }
-      ifs.read(reinterpret_cast<char *>(map_.data()), map_.size() * sizeof(MapValue));
+      standard_map_.resize(Tsumonya::Standard_::upper_bound);
+      ifs.read(reinterpret_cast<char *>(standard_map_.data()), standard_map_.size() * sizeof(MapValue));
       if (!ifs) {
         std::ostringstream oss;
         oss << map_path.string() << ": Failed to read.";
         throw std::runtime_error(oss.str());
       }
-      if (ifs.gcount() != static_cast<std::streamsize>(map_.size() * sizeof(MapValue))) {
+      if (ifs.gcount() != static_cast<std::streamsize>(standard_map_.size() * sizeof(MapValue))) {
+        std::ostringstream oss;
+        oss << map_path.string() << ": Failed to read.";
+        throw std::runtime_error(oss.str());
+      }
+      seven_pairs_map_.resize(Tsumonya::SevenPairs_::size);
+      ifs.read(reinterpret_cast<char *>(seven_pairs_map_.data()), seven_pairs_map_.size() * sizeof(MapValue));
+      if (!ifs) {
+        std::ostringstream oss;
+        oss << map_path.string() << ": Failed to read.";
+        throw std::runtime_error(oss.str());
+      }
+      if (ifs.gcount() != static_cast<std::streamsize>(seven_pairs_map_.size() * sizeof(MapValue))) {
         std::ostringstream oss;
         oss << map_path.string() << ": Failed to read.";
         throw std::runtime_error(oss.str());
@@ -154,6 +178,78 @@ private:
 
     Impl_ &operator=(Impl_ &&) = delete;
 
+  private:
+    static std::uint_fast8_t getConditionalFans_(Situation const situation) noexcept
+    {
+      std::uint_fast8_t conditional_fans = 0u;
+      if (static_cast<std::uint_fast16_t>(situation & liqi) != 0u) {
+        ++conditional_fans;
+      }
+      if (static_cast<std::uint_fast16_t>(situation & qianggang) != 0u) {
+        ++conditional_fans;
+      }
+      if (static_cast<std::uint_fast16_t>(situation & lingshang_kaihua) != 0u) {
+        ++conditional_fans;
+      }
+      if (static_cast<std::uint_fast16_t>(situation & haidi_moyue) != 0u) {
+        ++conditional_fans;
+      }
+      if (static_cast<std::uint_fast16_t>(situation & haidi_laoyue) != 0u) {
+        ++conditional_fans;
+      }
+      if (static_cast<std::uint_fast16_t>(situation & double_liqi) != 0u) {
+        conditional_fans += 2u;
+      }
+      if (static_cast<std::uint_fast16_t>(situation & yifa) != 0u) {
+        ++conditional_fans;
+      }
+      return conditional_fans;
+    }
+
+    std::pair<std::uint_fast8_t, std::uint_fast8_t> calculateNonStandard_(
+      std::array<std::uint_fast8_t, 34u> const &pure_hand,
+      std::uint_fast8_t const winning_tile,
+      Situation const situation,
+      std::uint_fast8_t const num_doras) const
+    {
+      std::uint_fast32_t const hash = [&]() -> std::uint_fast32_t {
+        std::array<std::uint_fast8_t, 34u> pure_hand_(pure_hand);
+        ++pure_hand_[winning_tile];
+        return Tsumonya::SevenPairs_::getHash(pure_hand_);
+      }();
+      if (hash == UINT_FAST32_MAX) {
+        return {0u, 0u};
+      }
+      if (hash >= seven_pairs_map_.size()) {
+        throw std::logic_error("A logic error.");
+      }
+
+      auto const [fu, fan_encode] = seven_pairs_map_[hash];
+      if (fu != 25u) {
+        throw std::logic_error("A logic error.");
+      }
+
+      bool const tianhu_ = static_cast<std::uint_fast16_t>(situation & tianhu) != 0u;
+      bool const dihu_ = static_cast<std::uint_fast16_t>(situation & dihu) != 0u;
+      if (fan_encode >= 128u || tianhu_ || dihu_) {
+        // 本役満（数え役満を除く役満）の場合．
+        if (fan_encode < 128u) {
+          // 天和のみ，もしくは地和のみの場合．
+          assert((tianhu_ || dihu_));
+          return {fu, 13u};
+        }
+        assert((fan_encode <= 133u));
+        return {fu, 13u + (fan_encode - 128u) * 13u + (tianhu_ || dihu_) ? 13u : 0u};
+      }
+
+      bool const zimo_ = static_cast<std::uint_fast16_t>(situation & zimo) != 0u;
+      std::uint_fast8_t const conditional_fans = getConditionalFans_(situation);
+      std::uint_fast8_t const fan = fan_encode + (zimo_ ? 1u : 0u) + conditional_fans + num_doras;
+
+      return {fu, std::min<std::uint_fast8_t>(fan, 13u)};
+    }
+
+  public:
     std::pair<std::uint_fast8_t, std::uint_fast8_t> operator()(
       Wind const round_wind,
       Wind const player_wind,
@@ -175,10 +271,33 @@ private:
         winning_tile,
         static_cast<std::uint_fast16_t>(situation & rong) != 0u);
       if (hash == UINT_FAST32_MAX) {
-        return {0u, 0u};
+        for (std::uint_fast8_t const chi : chi_list) {
+          if (chi >= 1u) {
+            return {0u, 0u};
+          }
+        }
+        for (std::uint_fast8_t const peng : peng_list) {
+          if (peng >= 1u) {
+            return {0u, 0u};
+          }
+        }
+        for (std::uint_fast8_t const angang : angang_list) {
+          if (angang >= 1u) {
+            return {0u, 0u};
+          }
+        }
+        for (std::uint_fast8_t const minggang : minggang_list) {
+          if (minggang >= 1u) {
+            return {0u, 0u};
+          }
+        }
+        return calculateNonStandard_(pure_hand, winning_tile, situation, num_doras);
+      }
+      if (hash >= standard_map_.size()) {
+        throw std::logic_error("A logic error.");
       }
 
-      auto const [fu_base, fan_encode] = map_[hash];
+      auto const [fu_base, fan_encode] = standard_map_[hash];
 
       bool const tianhu_ = static_cast<std::uint_fast16_t>(situation & tianhu) != 0u;
       bool const dihu_ = static_cast<std::uint_fast16_t>(situation & dihu) != 0u;
@@ -249,32 +368,7 @@ private:
         return feng_pai_fan;
       }();
 
-      std::uint_fast8_t const conditional_fans = [&]() {
-        std::uint_fast8_t conditional_fans = 0u;
-        if (static_cast<std::uint_fast16_t>(situation & liqi) != 0u) {
-          ++conditional_fans;
-        }
-        if (static_cast<std::uint_fast16_t>(situation & qianggang) != 0u) {
-          ++conditional_fans;
-        }
-        if (static_cast<std::uint_fast16_t>(situation & lingshang_kaihua) != 0u) {
-          ++conditional_fans;
-        }
-        if (static_cast<std::uint_fast16_t>(situation & haidi_moyue) != 0u) {
-          ++conditional_fans;
-        }
-        if (static_cast<std::uint_fast16_t>(situation & haidi_laoyue) != 0u) {
-          ++conditional_fans;
-        }
-        if (static_cast<std::uint_fast16_t>(situation & double_liqi) != 0u) {
-          conditional_fans += 2u;
-        }
-        if (static_cast<std::uint_fast16_t>(situation & yifa) != 0u) {
-          ++conditional_fans;
-        }
-        return conditional_fans;
-      }();
-
+      std::uint_fast8_t const conditional_fans = getConditionalFans_(situation);
       std::uint_fast8_t const fan = fan_base + feng_pai_fan + conditional_fans + num_doras;
 
       if (!pinghu_flag || feng_pai_fu == 0u) {
@@ -287,7 +381,8 @@ private:
     }
 
   private:
-    Tsumonya::Standard_::Map map_;
+    Tsumonya::Standard_::Map standard_map_;
+    Tsumonya::SevenPairs_::Map seven_pairs_map_;
     bool lian_feng_pai_as_2fu_;
   }; // class Impl_
 
