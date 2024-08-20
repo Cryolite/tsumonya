@@ -250,7 +250,7 @@ void dumpTables(
     ofs << '\n';
     ofs << "}\n";
     ofs << '\n';
-    ofs << "#endif // TSUMONYA_STANDARD_TABLE_HPP_INCLUDE_GUARD" << std::endl;
+    ofs << "#endif // !defined(TSUMONYA_STANDARD_TABLE_HPP_INCLUDE_GUARD)" << std::endl;
   }
 }
 
